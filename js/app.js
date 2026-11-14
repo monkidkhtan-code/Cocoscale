@@ -12,7 +12,7 @@ class CocoScaleApp {
     this.deviceTabExists = false;
     this.hwDraft = null;
     this.chartMode = "weight"; // 'weight' | 'moisture' | 'compare'
-    this.chartHours = 168; // Default 7D so historical & live multi-day curves align immediately
+    this.chartHours = 24; // Default 24H on landing
     this.showLuxOverlay = true;
     this.showTempOverlay = true;
     this.batteryHours = 24;
@@ -32,7 +32,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.8.0").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.8.1").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
