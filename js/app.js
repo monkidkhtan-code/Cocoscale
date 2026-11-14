@@ -32,7 +32,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.7.9").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.8.0").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -232,11 +232,19 @@ class CocoScaleApp {
     document.getElementById("btn-save-stations").addEventListener("click", () => this.saveStationsModal());
 
     // Copy Apps Script & Full ESP32 v2 Sketch buttons
-    document.getElementById("btn-copy-apps-script").addEventListener("click", () => {
-      const code = document.getElementById("apps-script-snippet").textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        this.showToast("Copied Google Apps Script v2.0 to clipboard!");
-      });
+    document.getElementById("btn-copy-apps-script").addEventListener("click", async () => {
+      try {
+        const res = await fetch(`./firmware/google_apps_script_v2.gs?_cb=${Date.now()}`);
+        if (!res.ok) throw new Error();
+        const code = await res.text();
+        await navigator.clipboard.writeText(code);
+        this.showToast(`Copied complete Google Apps Script (${code.split("\n").length} lines) with BagCalibration tab support!`);
+      } catch (_) {
+        const code = document.getElementById("apps-script-snippet").textContent;
+        navigator.clipboard.writeText(code).then(() => {
+          this.showToast("Copied Google Apps Script snippet to clipboard!");
+        });
+      }
     });
     document.getElementById("btn-copy-esp32-sketch").addEventListener("click", async () => {
       try {
@@ -409,7 +417,21 @@ class CocoScaleApp {
       }
     });
 
-    await Promise.all([...sheetTasks, rpTask, devCfgTask]);
+    const sheetCalTasks = this.config.stations.filter((s) => s.enabled).map(async (st) => {
+      const sheetId = st.sheetSource?.spreadsheetId || this.config.defaultSpreadsheetId;
+      const scriptUrl = st.deviceControl?.scriptUrl || this.config.defaultScriptUrl;
+      const pk = st.deviceControl?.plotKey || st.sheetSource?.tabName || "Plot1";
+      try {
+        const res = await SheetsService.fetchSheetBagCalibration(sheetId, scriptUrl, pk);
+        if (res.ok && res.calibration) {
+          st.calibration = { ...st.calibration, ...res.calibration };
+          return true;
+        }
+      } catch (_) {}
+      return false;
+    });
+
+    await Promise.all([...sheetTasks, rpTask, devCfgTask, ...sheetCalTasks]);
 
     this.recomputeAllStations();
     this.renderAll();
@@ -1489,7 +1511,13 @@ class CocoScaleApp {
     st.calibration.fieldCapacityKg = newFc;
     ConfigStore.save(this.config);
 
-    const plotKey = st.deviceControl?.plotKey || "Plot1";
+    const plotKey = st.deviceControl?.plotKey || st.sheetSource?.tabName || "Plot1";
+    const scriptUrl = st.deviceControl?.scriptUrl || this.config.defaultScriptUrl;
+
+    // 1. Sync calibration directly into Google Sheet 'BagCalibration' tab
+    SheetsService.pushSheetBagCalibration(scriptUrl, plotKey, st.calibration);
+
+    // 2. Also mirror to Firebase Realtime DB for instant cross-device broadcast
     fetch(`${DeviceService.FIREBASE_BASE_URL}/${encodeURIComponent(plotKey)}.json`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1754,8 +1782,13 @@ class CocoScaleApp {
 
     ConfigStore.save(this.config);
 
-    // Sync calibration to Firebase cloud so all devices & deployments automatically stay synchronized
-    const plotKey = st.deviceControl?.plotKey || "Plot1";
+    const plotKey = st.deviceControl?.plotKey || st.sheetSource?.tabName || "Plot1";
+    const scriptUrl = st.deviceControl?.scriptUrl || this.config.defaultScriptUrl;
+
+    // 1. Sync calibration directly into Google Sheet 'BagCalibration' tab
+    SheetsService.pushSheetBagCalibration(scriptUrl, plotKey, st.calibration);
+
+    // 2. Also mirror to Firebase Realtime DB for instant cross-device broadcast
     fetch(`${DeviceService.FIREBASE_BASE_URL}/${encodeURIComponent(plotKey)}.json`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

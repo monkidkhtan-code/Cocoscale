@@ -635,6 +635,141 @@ class SheetsService {
 
     return new Date(year, month - 1, day, hours, minutes, seconds);
   }
+
+  /**
+   * Fetch saved BagCalibration settings row from Google Sheet 'BagCalibration' tab
+   */
+  static async fetchSheetBagCalibration(spreadsheetId, scriptUrl, plotKey = "Plot1") {
+    // 1. First try Google Apps Script direct getCalibration action
+    if (scriptUrl) {
+      try {
+        const res = await fetch(`${scriptUrl}?action=getCalibration&plot=${encodeURIComponent(plotKey)}&_cb=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.ok && data.calibration) {
+            return { ok: true, source: "apps_script", calibration: data.calibration };
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Fetch directly from Google Sheets 'BagCalibration' tab using GViz JSONP (CORS-safe)
+    if (spreadsheetId) {
+      try {
+        const rawGrid = await this.fetchRawGvizGrid(spreadsheetId, "BagCalibration");
+        if (rawGrid && rawGrid.length > 1) {
+          const cleanPlot = String(plotKey).trim().toLowerCase();
+          for (let i = 1; i < rawGrid.length; i++) {
+            const row = rawGrid[i];
+            const rowPlot = String(row[0] || "").trim().toLowerCase();
+            if (rowPlot === cleanPlot || rowPlot === cleanPlot.replace(/\s+/g, "") || rowPlot === "plot1") {
+              const fc = parseFloat(row[1]);
+              const dry = parseFloat(row[2]);
+              if (!isNaN(fc) && !isNaN(dry) && fc > 0) {
+                return {
+                  ok: true,
+                  source: "sheet_tab",
+                  calibration: {
+                    fieldCapacityKg: fc,
+                    dryWeightKg: dry,
+                    plantBiomassKg: parseFloat(row[3]) || 0.0,
+                    irrigateTriggerPct: parseFloat(row[4]) || 75,
+                    criticalFloorPct: parseFloat(row[5]) || 55,
+                    targetRunoffPct: parseFloat(row[6]) || 15,
+                    scaleMultiplier: parseFloat(row[7]) || 1.0,
+                    scaleOffset: parseFloat(row[8]) || 0.0,
+                    updatedAt: String(row[9] || "")
+                  }
+                };
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    return { ok: false };
+  }
+
+  /**
+   * Push calibration settings to Google Apps Script which writes it into 'BagCalibration' sheet tab
+   */
+  static async pushSheetBagCalibration(scriptUrl, plotKey, cal) {
+    if (!scriptUrl) return { ok: false, reason: "NO_SCRIPT_URL" };
+    try {
+      const qs = new URLSearchParams({
+        action: "saveCalibration",
+        plot: plotKey || "Plot1",
+        fc: String(cal.fieldCapacityKg),
+        dry: String(cal.dryWeightKg),
+        biomass: String(cal.plantBiomassKg || 0),
+        trigger: String(cal.irrigateTriggerPct || 75),
+        critical: String(cal.criticalFloorPct || 55),
+        runoff: String(cal.targetRunoffPct || 15),
+        mult: String(cal.scaleMultiplier || 1.0),
+        offset: String(cal.scaleOffset || 0.0),
+        _cb: String(Date.now())
+      });
+      fetch(`${scriptUrl}?${qs.toString()}`, {
+        method: "GET",
+        mode: "no-cors",
+        cache: "no-store"
+      }).catch(() => {});
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  /**
+   * Raw GViz table fetcher for any sheet tab (e.g. BagCalibration)
+   */
+  static fetchRawGvizGrid(spreadsheetId, tabName = "BagCalibration") {
+    return new Promise((resolve, reject) => {
+      const cbName = `__cocoCalGvizCb_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+      const script = document.createElement("script");
+      let settled = false;
+
+      const cleanup = () => {
+        try { delete window[cbName]; } catch (_) { window[cbName] = undefined; }
+        if (script.parentNode) script.parentNode.removeChild(script);
+      };
+
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error("Timeout loading BagCalibration sheet"));
+      }, 7000);
+
+      window[cbName] = (payload) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        cleanup();
+        if (!payload || payload.status !== "ok" || !payload.table) {
+          reject(new Error("Sheet error"));
+          return;
+        }
+        try {
+          resolve(this.gvizTableToGrid(payload.table));
+        } catch (e) {
+          reject(e);
+        }
+      };
+
+      script.onerror = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        cleanup();
+        reject(new Error("Failed to load script"));
+      };
+
+      script.src = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?sheet=${encodeURIComponent(tabName)}&tqx=responseHandler:${cbName}&_cb=${Date.now()}`;
+      document.head.appendChild(script);
+    });
+  }
 }
 
 window.SheetsService = SheetsService;
