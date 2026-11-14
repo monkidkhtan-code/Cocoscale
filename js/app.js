@@ -2417,10 +2417,7 @@ class CocoScaleApp {
     const curLcd = cloud?.lcdMode || dc.lcdMode || "on";
     const nextLcd = curLcd === "on" ? "text_only" : "on";
     const intervalMin = cloud?.intervalMin || dc.intervalMin || 1;
-    let powerMode = cloud?.powerMode || dc.powerMode || "always_on";
-    if (nextLcd === "on" && powerMode !== "always_on") {
-      powerMode = "always_on";
-    }
+    const powerMode = cloud?.powerMode || dc.powerMode || "smart_saver";
     const scriptUrl = dc.scriptUrl || this.config.defaultScriptUrl || DEFAULT_CONFIG.defaultScriptUrl;
 
     dc.lcdMode = nextLcd;
