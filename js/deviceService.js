@@ -140,6 +140,7 @@ class DeviceService {
       ssid: node.ssid || node.wifiSsid || "",
       fw: node.fw || "",
       calFactor: node.calFactor !== undefined ? Number(node.calFactor) : null,
+      cloudCalibration: node.cloudCalibration && typeof node.cloudCalibration === "object" ? node.cloudCalibration : null,
       lastWeightKg: node.lastWeightKg !== undefined ? Number(node.lastWeightKg) : null,
       appliedState,
       desiredTag,

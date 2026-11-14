@@ -32,7 +32,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.7.8").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.7.9").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -398,6 +398,9 @@ class CocoScaleApp {
               st.deviceControl.intervalMin = cloud.intervalMin;
               st.deviceControl.powerMode = cloud.powerMode;
               st.deviceControl.lcdMode = cloud.lcdMode;
+              if (cloud.cloudCalibration && typeof cloud.cloudCalibration === "object" && cloud.cloudCalibration.fieldCapacityKg) {
+                st.calibration = { ...st.calibration, ...cloud.cloudCalibration };
+              }
               updatedLocal = true;
             }
           }
@@ -1485,6 +1488,14 @@ class CocoScaleApp {
 
     st.calibration.fieldCapacityKg = newFc;
     ConfigStore.save(this.config);
+
+    const plotKey = st.deviceControl?.plotKey || "Plot1";
+    fetch(`${DeviceService.FIREBASE_BASE_URL}/${encodeURIComponent(plotKey)}.json`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cloudCalibration: st.calibration })
+    }).catch(() => {});
+
     this.recomputeAllStations();
     this.renderAll();
     this.showToast(`Locked ${rawKg.toFixed(2)} kg as 100% Field Capacity for ${st.shortName}!`);
@@ -1742,6 +1753,15 @@ class CocoScaleApp {
     };
 
     ConfigStore.save(this.config);
+
+    // Sync calibration to Firebase cloud so all devices & deployments automatically stay synchronized
+    const plotKey = st.deviceControl?.plotKey || "Plot1";
+    fetch(`${DeviceService.FIREBASE_BASE_URL}/${encodeURIComponent(plotKey)}.json`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cloudCalibration: st.calibration })
+    }).catch(() => {});
+
     this.closeModal("modal-calibrate");
     this.recomputeAllStations();
     this.renderAll();

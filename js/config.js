@@ -25,7 +25,7 @@ const DEFAULT_CONFIG = {
       id: "scale-plot-1",
       name: "Plot 1 — Scale Station 1",
       shortName: "PLOT 1",
-      crop: "Chili (Polybag Cocopeat · Prototype Scale)",
+      crop: "Chili (Polybag Cocopeat)",
       enabled: true,
       color: "#10b981",
       rainpointProbe: "p1_s1",
@@ -45,13 +45,13 @@ const DEFAULT_CONFIG = {
         tabName: "Plot1"
       },
       calibration: {
-        fieldCapacityKg: 0.65,     // Pre-set to Bench Prototype range (0–0.65 kg); switch to 13.5 kg when polybag is placed
-        dryWeightKg: 0.00,         // 0% Baseline tare
-        plantBiomassKg: 0.00,      // Plant + fruit growth offset (kg)
-        irrigateTriggerPct: 65,    // Refill trigger %
-        criticalFloorPct: 40,      // Stress warning floor %
+        fieldCapacityKg: 8.30,     // Saturated weight 15–30 mins after full watering (8.30 kg)
+        dryWeightKg: 3.00,         // 0% Baseline tare: dry cocopeat + polybag (3.00 kg)
+        plantBiomassKg: 0.00,      // Growing plant + fruit biomass offset (kg)
+        irrigateTriggerPct: 75,    // Refill trigger % (75% of available water = 7.00 kg)
+        criticalFloorPct: 55,      // Critical drought stress floor % (55% = 5.91 kg)
         targetRunoffPct: 15,       // Desired drainage % per fertigation shot for EC flush
-        irrigationJumpKg: 0.05,    // 50g jump sensitivity for bench prototype (0.15 kg for field polybag)
+        irrigationJumpKg: 0.05,    // Drip detection sensitivity
         scaleMultiplier: 1.0,      // In-app hardware scale calibration multiplier
         scaleOffset: 0.0           // In-app scale zero offset adjustment (kg)
       }
@@ -152,8 +152,13 @@ class ConfigStore {
       const stations = rawStations.map((st, idx) => {
         const defSt = DEFAULT_CONFIG.stations[idx] || DEFAULT_CONFIG.stations[0];
         const fallbackPlotKey = st.sheetSource?.tabName || `Plot${idx + 1}`;
+        let cal = { ...defSt.calibration, ...(st.calibration || {}) };
+        if (idx === 0 && (cal.fieldCapacityKg < 1.0 || (cal.fieldCapacityKg === 5.5 && cal.dryWeightKg === 4.5))) {
+          cal = structuredClone(defSt.calibration);
+        }
         return {
           ...st,
+          calibration: cal,
           deviceControl: {
             plotKey: fallbackPlotKey,
             scriptUrl: DEFAULT_CONFIG.defaultScriptUrl,
