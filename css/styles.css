@@ -723,6 +723,27 @@ html, body {
   color: #fecaca;
 }
 
+.bag-marker.current-line {
+  border-top: 1.5px solid #2dd4bf;
+  color: #5eead4;
+  z-index: 5;
+  transition: bottom 0.4s ease;
+}
+
+.bag-marker.current-line .marker-tag {
+  background: #0d9488;
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.6);
+}
+
+.bag-marker.current-line .marker-val {
+  background: rgba(15, 23, 42, 0.9);
+  color: #2dd4bf;
+  font-weight: 800;
+  border: 1px solid rgba(45, 212, 191, 0.4);
+}
+
 /* HX711 Aluminum Load-Cell Scale Base Assembly */
 .scale-plinth {
   width: 148px;

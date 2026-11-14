@@ -821,6 +821,13 @@ class CocoScaleApp {
     if (m.statusTone === "warn" || m.statusTone === "watch") fillEl.classList.add("warn");
     if (m.statusTone === "danger") fillEl.classList.add("danger");
 
+    const markerCurrent = document.getElementById("marker-current");
+    const markerCurrentKg = document.getElementById("marker-current-kg");
+    if (markerCurrent && markerCurrentKg) {
+      markerCurrent.style.bottom = `${tankPct}%`;
+      markerCurrentKg.textContent = `${m.rawWeightKg.toFixed(2)}kg`;
+    }
+
     const weightDecimals = Math.abs(m.rawWeightKg) < 2 ? 3 : 2;
     document.getElementById("hero-weight-kg").textContent = m.rawWeightKg.toFixed(weightDecimals);
     document.getElementById("hero-moisture-pct").textContent = m.status === "UNLOADED" ? "Tare" : `${m.displayPct.toFixed(1)}%`;
