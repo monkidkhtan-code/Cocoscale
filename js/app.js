@@ -32,7 +32,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.7.7").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.7.8").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -185,13 +185,25 @@ class CocoScaleApp {
       this.renderChart();
     });
 
-    // Modal close buttons & backdrop click
+    // Modal close buttons (explicit X and Cancel buttons)
     document.querySelectorAll("[data-close]").forEach((btn) => {
       btn.addEventListener("click", () => this.closeModal(btn.dataset.close));
     });
+
+    // Backdrop click: Never close form modals (modal-calibrate, modal-hardware, modal-stations)
+    // on backdrop click to prevent accidental dismissal while dragging mouse, selecting text, or tuning inputs.
+    // For read-only modals, require both mousedown and mouseup directly on the backdrop.
+    const formModalIds = new Set(["modal-calibrate", "modal-hardware", "modal-stations"]);
     document.querySelectorAll(".modal-backdrop").forEach((bd) => {
-      bd.addEventListener("click", (e) => {
-        if (e.target === bd) bd.classList.add("hidden");
+      let mousedownOnBackdrop = false;
+      bd.addEventListener("mousedown", (e) => {
+        mousedownOnBackdrop = (e.target === bd);
+      });
+      bd.addEventListener("mouseup", (e) => {
+        if (mousedownOnBackdrop && e.target === bd && !formModalIds.has(bd.id)) {
+          bd.classList.add("hidden");
+        }
+        mousedownOnBackdrop = false;
       });
     });
 
