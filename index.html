@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KH CocoScale | Cocopeat Moisture Weight Monitor</title>
+  <meta name="description" content="Multi-plot load-cell gravimetric cocopeat moisture, dry-back & fertigation dose monitor for KH Agrifarm.">
+  <meta name="theme-color" content="#0d9488">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="css/styles.css?v=1.7.7">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Header -->
+    <header class="top-bar">
+      <div class="brand-wrap">
+        <img src="assets/icon.svg" alt="CocoScale Icon" class="brand-icon">
+        <div>
+          <div class="brand-title">
+            <span>KH CocoScale</span>
+            <span class="brand-tag">Load-Cell Telemetry</span>
+          </div>
+          <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <div id="sync-status-pill" class="sync-pill">
+          <span class="sync-dot"></span>
+          <span id="sync-status-text">Connecting...</span>
+        </div>
+
+        <button type="button" id="btn-sync-now" class="btn btn-primary" title="Fetch latest rows from Google Sheets">
+          <i data-lucide="refresh-cw" id="icon-sync"></i>
+          <span>Sync Sheet</span>
+        </button>
+
+        <button type="button" id="btn-force-reload" class="btn" style="border:1px solid rgba(255,255,255,0.18); font-size:0.75rem; padding:0.4rem 0.65rem;" title="Bypass browser cache and reload fresh app code">
+          <i data-lucide="rotate-ccw"></i>
+          <span>Reload App</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Dynamic Notice Banner (Shown only if Google Sheet is Restricted, Empty, or Offline) -->
+    <section id="notice-banner" class="notice-banner hidden">
+      <div class="notice-body">
+        <i data-lucide="shield-alert" id="notice-icon"></i>
+        <div>
+          <div id="notice-title" class="notice-title">Google Sheet Connection Notice</div>
+          <div id="notice-desc" class="notice-desc"></div>
+        </div>
+      </div>
+      <div class="notice-actions">
+        <a id="btn-banner-open-sheet" href="https://docs.google.com/spreadsheets/d/1qNIP7qnraa2BVOawSMyFE7bcmNUvLZLjF65Scfz7Yd8/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="btn btn-amber btn-sm">
+          <i data-lucide="external-link"></i>
+          <span>Open Google Sheet</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- Multi-Plot Scale Station Strip -->
+    <section>
+      <div class="section-header-inline">
+        <span class="section-label">Scale Stations (Plot Overview)</span>
+        <span id="last-sync-clock" class="mono" style="font-size:0.73rem; color:var(--text-secondary);">--</span>
+      </div>
+      <div id="station-strip" class="station-strip"></div>
+    </section>
+
+    <!-- Selected Station Hero Grid -->
+    <section class="hero-grid">
+      <!-- Left: Polybag Water Gauge & Live Scale Readout -->
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div id="active-station-title" class="panel-title">Plot 1 — Scale Station 1</div>
+            <div id="active-station-meta" class="panel-subtitle">Chili (Polybag Cocopeat)</div>
+          </div>
+          <span id="active-status-chip" class="status-chip tone-muted">Waiting</span>
+        </div>
+
+        <div class="gauge-layout">
+          <div id="polybag-chili-visual" class="bag-tank-wrap state-optimal">
+            <!-- Custom 3-Leader Botanical Chili Tree Canopy -->
+            <div class="chili-canopy-wrap" title="Chili Tree (Capsicum annuum) in Cocopeat Polybag">
+              <svg class="chili-plant-svg" viewBox="0 0 200 164" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <defs>
+                  <!-- Two-Tone Split Botanical Chili Leaf (Left Lit / Right Shaded) -->
+                  <g id="chiliLeaf">
+                    <path d="M 0 0 C -11 -7, -13 -22, 0 -35 L 0 0 Z" fill="#7cb342"/>
+                    <path d="M 0 0 C 11 -7, 13 -22, 0 -35 L 0 0 Z" fill="#558b2f"/>
+                    <path d="M 0 2 L 0 -32" stroke="#436f23" stroke-width="1.2" stroke-linecap="round"/>
+                  </g>
+                  <!-- Two-Tone Split Botanical Chili Leaf (Right Lit / Left Shaded) -->
+                  <g id="chiliLeafFlip">
+                    <path d="M 0 0 C -11 -7, -13 -22, 0 -35 L 0 0 Z" fill="#558b2f"/>
+                    <path d="M 0 0 C 11 -7, 13 -22, 0 -35 L 0 0 Z" fill="#7cb342"/>
+                    <path d="M 0 2 L 0 -32" stroke="#436f23" stroke-width="1.2" stroke-linecap="round"/>
+                  </g>
+                  <!-- 5-Petal White Chili Blossom -->
+                  <g id="chiliFlower">
+                    <circle cx="0" cy="-3.2" r="2.2" fill="#f8fafc"/>
+                    <circle cx="3.0" cy="-1.0" r="2.2" fill="#f8fafc"/>
+                    <circle cx="1.9" cy="2.6" r="2.2" fill="#f8fafc"/>
+                    <circle cx="-1.9" cy="2.6" r="2.2" fill="#f8fafc"/>
+                    <circle cx="-3.0" cy="-1.0" r="2.2" fill="#f8fafc"/>
+                    <circle cx="0" cy="0" r="1.6" fill="#facc15"/>
+                  </g>
+                </defs>
+
+                <!-- Back Layer Foliage (Every Leaf Base Anchored Directly on a Branch Curve) -->
+                <g class="plant-foliage-back">
+                  <!-- Center Leader Inner Leaves (Anchored on L1 at y=45 & y=66) -->
+                  <use href="#chiliLeaf" transform="translate(101, 45) rotate(-38) scale(0.76)"/>
+                  <use href="#chiliLeafFlip" transform="translate(101, 66) rotate(36) scale(0.74)"/>
+                  <!-- Left Branch Back Leaves (Anchored on sub_L2_up & L2) -->
+                  <use href="#chiliLeaf" transform="translate(60, 47) rotate(22) scale(0.74)"/>
+                  <use href="#chiliLeaf" transform="translate(60, 76) rotate(-26) scale(0.78)"/>
+                  <use href="#chiliLeaf" transform="translate(86, 94) rotate(-42) scale(0.72)"/>
+                  <!-- Right Branch Back Leaves (Anchored on sub_L3_up & L3) -->
+                  <use href="#chiliLeafFlip" transform="translate(141, 41) rotate(-22) scale(0.74)"/>
+                  <use href="#chiliLeafFlip" transform="translate(143, 66) rotate(26) scale(0.78)"/>
+                  <use href="#chiliLeafFlip" transform="translate(115, 83) rotate(42) scale(0.72)"/>
+                  <!-- Lower Stem Inner Leaves (Anchored on sub_low_L & sub_low_R) -->
+                  <use href="#chiliLeaf" transform="translate(85, 122) rotate(-52) scale(0.76)"/>
+                  <use href="#chiliLeafFlip" transform="translate(114, 114) rotate(50) scale(0.76)"/>
+                </g>
+
+                <!-- 3-Leader Organic Trunk & Asymmetric Branches (Exact Intersecting Nodes) -->
+                <g class="plant-stems" stroke-linecap="round" stroke-linejoin="round">
+                  <!-- Slightly S-Curved Main Trunk -->
+                  <path d="M 100 162 C 101 140, 97 118, 99 94" stroke="#4d8b3c" stroke-width="7.0" fill="none"/>
+                  <path d="M 102 162 C 103 140, 99 118, 101 94" stroke="#3d732c" stroke-width="2.4" fill="none"/>
+
+                  <!-- Leader 1: Tall Central Crown Stem -->
+                  <path d="M 99 94 C 101 72, 102 46, 100 20" stroke="#4d8b3c" stroke-width="4.2" fill="none"/>
+                  <path d="M 101 55 C 92 46, 85 39, 79 32" stroke="#4d8b3c" stroke-width="2.6" fill="none"/>
+                  <path d="M 101 49 C 110 41, 117 34, 123 28" stroke="#4d8b3c" stroke-width="2.6" fill="none"/>
+
+                  <!-- Leader 2: Left Sweeping Limb (Branches at Trunk y=105) -->
+                  <path d="M 99 105 C 80 88, 56 72, 30 58" stroke="#4d8b3c" stroke-width="4.4" fill="none"/>
+                  <path d="M 71 83 C 65 64, 60 48, 55 34" stroke="#4d8b3c" stroke-width="3.0" fill="none"/>
+                  <path d="M 51 70 C 42 73, 34 76, 27 80" stroke="#4d8b3c" stroke-width="2.3" fill="none"/>
+
+                  <!-- Leader 3: Right Cascading Limb (Branches at Trunk y=94) -->
+                  <path d="M 99 94 C 119 79, 144 64, 170 52" stroke="#4d8b3c" stroke-width="4.4" fill="none"/>
+                  <path d="M 129 74 C 135 56, 140 42, 145 30" stroke="#4d8b3c" stroke-width="3.0" fill="none"/>
+                  <path d="M 151 62 C 158 66, 165 71, 170 78" stroke="#4d8b3c" stroke-width="2.3" fill="none"/>
+
+                  <!-- Lower Bilateral Shoots (Anchored on Trunk at y=125 & y=117) -->
+                  <path d="M 99 125 C 85 120, 73 121, 62 126" stroke="#4d8b3c" stroke-width="2.8" fill="none"/>
+                  <path d="M 99 117 C 114 112, 127 114, 138 120" stroke="#4d8b3c" stroke-width="2.8" fill="none"/>
+                </g>
+
+                <!-- Front Layer Split Botanical Leaves (Anchored Directly at Branch Tips) -->
+                <g class="plant-foliage-front">
+                  <!-- Central Crown Apex Trio -->
+                  <use href="#chiliLeaf" transform="translate(100, 21) rotate(-4) scale(0.98)"/>
+                  <use href="#chiliLeaf" transform="translate(79, 32) rotate(-32) scale(0.86)"/>
+                  <use href="#chiliLeafFlip" transform="translate(123, 28) rotate(30) scale(0.86)"/>
+
+                  <!-- Upper-Left Sub-Branch Leaves -->
+                  <use href="#chiliLeaf" transform="translate(55, 34) rotate(-18) scale(0.90)"/>
+                  <use href="#chiliLeaf" transform="translate(31, 58) rotate(-58) scale(1.0)"/>
+                  <use href="#chiliLeaf" transform="translate(27, 80) rotate(-104) scale(0.86)"/>
+
+                  <!-- Upper-Right Sub-Branch Leaves -->
+                  <use href="#chiliLeafFlip" transform="translate(145, 30) rotate(20) scale(0.90)"/>
+                  <use href="#chiliLeafFlip" transform="translate(169, 52) rotate(56) scale(1.0)"/>
+                  <use href="#chiliLeafFlip" transform="translate(170, 78) rotate(102) scale(0.86)"/>
+
+                  <!-- Lower Bilateral Leaves (Framing the Trunk on Both Sides) -->
+                  <use href="#chiliLeaf" transform="translate(62, 126) rotate(-116) scale(0.92)"/>
+                  <use href="#chiliLeafFlip" transform="translate(138, 120) rotate(114) scale(0.92)"/>
+                </g>
+
+                <!-- 6 Chili Peppers (Pedicels Anchored Inside Branch & Overlapping Calyx Caps) + 2 White Chili Blossoms -->
+                <g class="chili-fruits">
+                  <!-- 1. Outer-Left Ripe Red Chili (Anchored on Left Limb L2 at 45.3, 66.6) -->
+                  <path d="M 45.3 66.6 Q 43 73 43 81" stroke="#4d8b3c" stroke-width="2.3" stroke-linecap="round" fill="none"/>
+                  <path d="M 38 78 C 38 93, 35 108, 28 121 C 38 117, 46 100, 48 78 Z" fill="#c62828"/>
+                  <path d="M 43 78 C 43 93, 39 107, 28 121 C 38 117, 46 100, 48 78 Z" fill="#b71c1c"/>
+                  <path d="M 40 83 C 40 94, 38 104, 33 113" stroke="#ef5350" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                  <path d="M 37.5 80 C 38.5 74.5, 47.5 74.5, 48.5 80 C 46 78.5, 40 78.5, 37.5 80 Z" fill="#4d8b3c"/>
+
+                  <!-- 2. Mid-Left Ripening Orange-Red Chili (Anchored on Left Limb L2 at 70.6, 82.6) -->
+                  <path d="M 70.6 82.6 Q 66.5 89 66 97" stroke="#4d8b3c" stroke-width="2.3" stroke-linecap="round" fill="none"/>
+                  <path d="M 61 94 C 61 108, 58 121, 51 132 C 61 128, 69 113, 71 94 Z" fill="#ef6c00"/>
+                  <path d="M 66 94 C 66 108, 62 120, 51 132 C 61 128, 69 113, 71 94 Z" fill="#d84315"/>
+                  <path d="M 63 99 C 63 108, 61 117, 56 125" stroke="#ffb74d" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+                  <path d="M 60.5 96 C 61.5 90.5, 70.5 90.5, 71.5 96 C 69 94.5, 63 94.5, 60.5 96 Z" fill="#4d8b3c"/>
+
+                  <!-- 3. High Center-Left Deep Crimson Chili (Anchored on Crown Sub-Branch at 92.2, 46.2) -->
+                  <path d="M 92.2 46.2 Q 89.5 54 88.5 64" stroke="#4d8b3c" stroke-width="2.3" stroke-linecap="round" fill="none"/>
+                  <path d="M 84 61 C 83 75, 79 88, 72 99 C 82 96, 90 81, 93 62 Z" fill="#d32f2f"/>
+                  <path d="M 88 61 C 87 75, 82 88, 72 99 C 82 96, 90 81, 93 62 Z" fill="#b71c1c"/>
+                  <path d="M 86 66 C 85 75, 82 84, 77 92" stroke="#ff8a80" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+                  <path d="M 83.5 63 C 84.5 57.5, 92.5 57.5, 93.5 63 C 91 61.5, 86 61.5, 83.5 63 Z" fill="#4d8b3c"/>
+
+                  <!-- 4. Center-Right Lime-Green Young Chili (Anchored on Right Limb L3 at 116.9, 81.5) -->
+                  <path d="M 116.9 81.5 Q 117 87 116.5 94" stroke="#4d8b3c" stroke-width="2.3" stroke-linecap="round" fill="none"/>
+                  <path d="M 112 91 C 112 105, 115 118, 123 129 C 119 117, 120 104, 121 91 Z" fill="#689f38"/>
+                  <path d="M 112 91 C 112 105, 115 118, 123 129 C 121 118, 116 105, 116 91 Z" fill="#7cb342"/>
+                  <path d="M 115 95 C 115 105, 117 114, 120 121" stroke="#aed581" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+                  <path d="M 111.5 93 C 112.5 87.5, 120.5 87.5, 121.5 93 C 119 91.5, 114 91.5, 111.5 93 Z" fill="#4d8b3c"/>
+
+                  <!-- 5. Outer-Right Long Crimson Chili (Anchored on Right Limb L3 at 143.2, 65.6) -->
+                  <path d="M 143.2 65.6 Q 146 72 146 80" stroke="#4d8b3c" stroke-width="2.3" stroke-linecap="round" fill="none"/>
+                  <path d="M 141 77 C 140 94, 145 111, 155 124 C 150 109, 150 93, 151 77 Z" fill="#b71c1c"/>
+                  <path d="M 141 77 C 140 94, 145 111, 155 124 C 152 110, 146 94, 146 77 Z" fill="#e53935"/>
+                  <path d="M 144 82 C 144 94, 147 106, 151 116" stroke="#ff8a80" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                  <path d="M 140.5 79 C 141.5 73.5, 150.5 73.5, 151.5 79 C 149 77.5, 143 77.5, 140.5 79 Z" fill="#4d8b3c"/>
+
+                  <!-- 6. Lower-Left Dark-Green Chili (Anchored on Lower-Left Shoot at 81.2, 121.7) -->
+                  <path d="M 81.2 121.7 Q 80 127 80 134" stroke="#4d8b3c" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                  <path d="M 75.5 131 C 75.5 142, 73.5 151, 68.5 159 C 76.5 156, 83.5 145, 84.5 131 Z" fill="#3d842e"/>
+                  <path d="M 79.5 131 C 79.5 142, 76.5 151, 68.5 159 C 76.5 156, 83.5 145, 84.5 131 Z" fill="#2e6b22"/>
+                  <path d="M 77.5 135 C 77.5 142, 75.5 149, 72.5 154" stroke="#81c784" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+                  <path d="M 75 133 C 76 128, 84 128, 85 133 C 82.5 131.5, 77.5 131.5, 75 133 Z" fill="#4d8b3c"/>
+
+                  <!-- White Chili Blossoms Connected to Upper Sub-Branches via Pedicel Stems -->
+                  <path d="M 63.4 59.1 L 58 54" stroke="#4d8b3c" stroke-width="1.8" stroke-linecap="round"/>
+                  <use href="#chiliFlower" transform="translate(58, 54) scale(0.95)"/>
+                  <path d="M 136.6 51.9 L 142 47" stroke="#4d8b3c" stroke-width="1.8" stroke-linecap="round"/>
+                  <use href="#chiliFlower" transform="translate(142, 47) scale(0.95)"/>
+                </g>
+              </svg>
+            </div>
+
+            <!-- White UV Grow Polybag with Cocopeat + Root Zone Cutaway -->
+            <div class="bag-tank" title="Cocopeat Polybag Root Zone & Available Water Level">
+              <!-- Rolled Polybag Top Collar & Cocopeat Surface Mound -->
+              <div class="polybag-top-collar">
+                <div class="cocopeat-surface-mound"></div>
+              </div>
+
+              <!-- Continuous Fibrous Root System Inside Cocopeat (Every Root & Sub-Root Intersects Parent Curve) -->
+              <svg class="bag-roots-svg" viewBox="0 0 120 170" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <g stroke="rgba(217, 160, 102, 0.38)" stroke-linecap="round" stroke-linejoin="round">
+                  <!-- Central Taproot (Directly Under Main Trunk x=60) -->
+                  <path d="M 60 0 C 60 45, 58 95, 59 158" stroke-width="2.4"/>
+
+                  <!-- 6 Primary Lateral Roots (Anchored Directly on Taproot Curve) -->
+                  <path d="M 60.0 10.9 C 44 24, 28 46, 16 86" stroke-width="1.6"/>
+                  <path d="M 59.9 17.8 C 76 31, 92 52, 104 92" stroke-width="1.6"/>
+                  <path d="M 59.7 34.8 C 44 54, 32 86, 24 134" stroke-width="1.4"/>
+                  <path d="M 59.6 43.5 C 75 62, 88 94, 96 138" stroke-width="1.4"/>
+                  <path d="M 59.1 72.2 C 48 96, 42 124, 38 154" stroke-width="1.2"/>
+                  <path d="M 59.0 81.7 C 70 104, 76 128, 80 156" stroke-width="1.2"/>
+
+                  <!-- 12 Secondary Fibrous Rootlets (Anchored at Exact Bezier Points on Parent Roots) -->
+                  <path d="M 38.8 34.8 C 30 46, 20 58, 12 74" stroke-width="0.95"/>
+                  <path d="M 28.6 52.8 C 29 68, 26 84, 21 102" stroke-width="0.9"/>
+                  <path d="M 81.2 41.4 C 90 52, 100 64, 108 80" stroke-width="0.95"/>
+                  <path d="M 91.4 59.1 C 91 74, 94 90, 99 106" stroke-width="0.9"/>
+                  <path d="M 41.9 66.0 C 33 82, 24 98, 16 118" stroke-width="0.95"/>
+                  <path d="M 33.5 90.5 C 36 108, 35 126, 32 144" stroke-width="0.9"/>
+                  <path d="M 77.5 73.8 C 86 88, 95 104, 103 122" stroke-width="0.95"/>
+                  <path d="M 86.2 97.3 C 84 114, 85 130, 88 146" stroke-width="0.9"/>
+                  <path d="M 45.9 110.8 C 40 124, 34 138, 29 152" stroke-width="0.85"/>
+                  <path d="M 72.1 116.7 C 78 128, 84 142, 89 154" stroke-width="0.85"/>
+                  <path d="M 58.8 102.5 C 52 122, 49 140, 47 158" stroke-width="0.9"/>
+                  <path d="M 58.7 113.1 C 65 130, 68 144, 70 159" stroke-width="0.9"/>
+                </g>
+              </svg>
+
+              <!-- Dynamic Water Level Fill -->
+              <div id="bag-water-fill" class="bag-water-fill" style="height: 0%;">
+                <div class="water-meniscus"></div>
+              </div>
+
+              <!-- Polybag Side Drainage Holes -->
+              <div class="polybag-drain-holes" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+
+              <!-- Threshold Markers -->
+              <div id="marker-fc" class="bag-marker fc-line" style="bottom: 92%;">
+                <span class="marker-tag">FC</span>
+                <span id="marker-fc-kg" class="marker-val">13.5kg</span>
+              </div>
+              <div id="marker-trigger" class="bag-marker trigger-line" style="bottom: 65%;">
+                <span class="marker-tag">TRIG</span>
+                <span id="marker-trig-kg" class="marker-val">10.5kg</span>
+              </div>
+              <div id="marker-critical" class="bag-marker critical-line" style="bottom: 46%;">
+                <span class="marker-tag">MIN</span>
+                <span id="marker-crit-kg" class="marker-val">8.5kg</span>
+              </div>
+            </div>
+
+            <!-- HX711 Load-Cell Weighing Platform Base -->
+            <div class="scale-plinth" title="HX711 Load-Cell Weighing Platform">
+              <div class="scale-top-plate"></div>
+              <div class="scale-loadcell-beam">
+                <span class="scale-led-dot"></span>
+                <span class="scale-beam-label mono">HX711 SCALE</span>
+              </div>
+              <div class="scale-base-feet"></div>
+            </div>
+            <span id="reading-age-badge" class="mono" style="font-size:0.7rem; color:var(--text-secondary); margin-top:0.35rem;">No reading yet</span>
+            <div id="hero-countdown-box" class="mono" style="font-size:0.72rem; color:#38bdf8; font-weight:700; margin-top:0.25rem; display:inline-flex; align-items:center; gap:0.25rem;" title="Live ticking countdown to next data reading">
+              <span>⏳ Next:</span>
+              <span id="hero-countdown-val">--:--</span>
+            </div>
+          </div>
+
+          <div class="readout-main">
+            <div class="big-numbers">
+              <div class="primary-kg mono">
+                <span id="hero-weight-kg">--.--</span> <span class="unit">kg</span>
+              </div>
+              <div id="hero-moisture-pct" class="secondary-pct mono">--%</div>
+            </div>
+
+            <div id="hero-water-liters" class="water-liters-line mono">
+              Available Water: -- L / -- L capacity · Dry-back: --%
+            </div>
+
+            <div id="hero-advisory" class="advisory-box">
+              Syncing live readings from your Google Sheet...
+            </div>
+
+            <div class="quick-cal-actions">
+              <button type="button" id="btn-set-fc-now" class="btn btn-sm" title="Click 15-30 mins after full irrigation once drainage stops to lock current weight as 100% Field Capacity">
+                <i data-lucide="crosshair"></i>
+                <span>Set Current as 100% Field Capacity</span>
+              </button>
+              <button type="button" id="btn-open-calibrate" class="btn btn-sm">
+                <i data-lucide="sliders"></i>
+                <span>Calibrate Bag &amp; Thresholds</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Fertigation Dose & Dry-Back Analytics -->
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Fertigation &amp; Dry-Back Intelligence</div>
+            <div class="panel-subtitle">Exact gravimetric water loss (`1.00 kg = 1,000 mL` water)</div>
+          </div>
+        </div>
+
+        <!-- Live Drip Decision Advisory Banner (3 Core Rules: Dry-back, Temp > 28°C, Light > 500 Lx) -->
+        <div id="drip-decision-card" class="drip-decision-card hold">
+          <div class="drip-decision-head">
+            <div class="drip-decision-badge">
+              <span id="drip-decision-badge-icon">🛑</span>
+              <span id="drip-decision-badge-text">HOLD DRIP</span>
+            </div>
+            <div id="drip-decision-summary" class="drip-decision-summary">
+              Evaluating dry-back, temperature &amp; sunlight parameters...
+            </div>
+          </div>
+
+          <div class="drip-decision-rules">
+            <!-- Rule 1: Weight / Moisture Trigger -->
+            <div id="drip-rule-weight" class="drip-rule-chip fail">
+              <div class="drip-rule-top">
+                <span class="drip-rule-icon">✕</span>
+                <span class="drip-rule-title">1. Moisture Dry-Back</span>
+              </div>
+              <div id="drip-rule-weight-val" class="drip-rule-val mono">-- kg (Checking)</div>
+            </div>
+
+            <!-- Rule 2: Temperature > 28°C -->
+            <div id="drip-rule-temp" class="drip-rule-chip fail">
+              <div class="drip-rule-top">
+                <span class="drip-rule-icon">✕</span>
+                <span class="drip-rule-title">2. Temperature &gt; 28°C</span>
+              </div>
+              <div id="drip-rule-temp-val" class="drip-rule-val mono">-- °C</div>
+            </div>
+
+            <!-- Rule 3: Light > 500 Lux -->
+            <div id="drip-rule-light" class="drip-rule-chip fail">
+              <div class="drip-rule-top">
+                <span class="drip-rule-icon">✕</span>
+                <span class="drip-rule-title">3. Light &gt; 500 Lx</span>
+              </div>
+              <div id="drip-rule-light-val" class="drip-rule-val mono">-- Lux</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-tile">
+            <div class="kpi-label">Water Deficit to 100% FC</div>
+            <div id="kpi-deficit-ml" class="kpi-value mono">-- mL</div>
+            <div id="kpi-deficit-sub" class="kpi-sub">Target Field Capacity: -- kg</div>
+          </div>
+
+          <div class="kpi-tile">
+            <div class="kpi-label">Recommended Drip Dose</div>
+            <div id="kpi-shot-ml" class="kpi-value mono" style="color:#38bdf8;">-- mL</div>
+            <div id="kpi-shot-sub" class="kpi-sub">Includes 15% runoff for EC flush</div>
+          </div>
+
+          <div class="kpi-tile">
+            <div class="kpi-label">Today's Peak Dry-Back</div>
+            <div id="kpi-dryback-today" class="kpi-value mono">--%</div>
+            <div id="kpi-dryback-sub" class="kpi-sub">Peak: -- kg · 0 shots today</div>
+          </div>
+
+          <div class="kpi-tile">
+            <div class="kpi-label">Uptake Rate &amp; Next Drip</div>
+            <div id="kpi-uptake-rate" class="kpi-value mono">-- mL/hr</div>
+            <div id="kpi-uptake-sub" class="kpi-sub">Overnight dry-back: --</div>
+          </div>
+        </div>
+
+        <div id="hw-live-bar" class="hw-live-bar mono">
+          <div class="hw-live-bar-info">
+            <span style="color:#7dd3fc; font-weight:700;">⚡ ESP32 Scale:</span>
+            <span id="hw-live-online" class="wifi-live-pill" title="Scale Connectivity Status (Online / Offline)">⚪ Checking...</span>
+            <span id="hw-live-battery" class="wifi-live-pill" style="cursor:pointer;" title="Click to view Battery, Solar &amp; Power Analytics">🔋 --%</span>
+            <span id="hw-live-interval" style="color:#5eead4;">Every 1m</span>
+            <span id="hw-live-power" style="color:#e2e8f0;">Always Awake</span>
+            <span id="hw-live-lcd" style="color:#fde047;">LCD Glow ON</span>
+            <span id="hw-live-wifi" class="wifi-live-pill" title="ESP32 Wi-Fi Signal Strength (RSSI dBm)">📶 Wi-Fi --</span>
+            <span id="hw-live-countdown" class="wifi-live-pill" style="color:#38bdf8; border-color:rgba(56,189,248,0.4); font-weight:700;" title="Live countdown to next load-cell capture">⏳ Next: --:--</span>
+            <span id="hw-live-sync" style="color:var(--text-secondary);">Ready</span>
+          </div>
+          <div style="display:flex; gap:0.4rem; align-items:center;">
+            <button type="button" id="btn-instant-lcd-toggle" class="btn btn-sm" style="padding:0.25rem 0.62rem; font-size:0.72rem; border-color:rgba(250,204,21,0.45); color:#fde047;" title="Instant 1-click toggle for 16x2 LCD Backlight (<1 sec)">
+              <i data-lucide="sun"></i>
+              <span id="btn-instant-lcd-label">LCD Light: ON</span>
+            </button>
+            <button type="button" id="btn-hero-open-hardware" class="btn btn-sm" style="padding:0.25rem 0.6rem; font-size:0.72rem;">
+              <i data-lucide="settings-2"></i>
+              <span>Control ESP32</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="rainpoint-live-bar" class="rainpoint-bar mono">
+          <span class="rp-title">RainPoint Climate:</span>
+          <span id="rp-live-lux" style="color:#facc15;">☀ -- Lux</span>
+          <span id="rp-live-temp" style="color:#fb923c;">🌡 -- °C</span>
+          <span id="rp-live-meta" style="color:var(--text-secondary);">Syncing...</span>
+        </div>
+
+        <div id="cal-summary-bar" class="cal-summary-bar mono">
+          <span>FC (100%): -- kg</span>
+          <span>Trigger: --% (-- kg)</span>
+          <span>Dry Tare: -- kg</span>
+          <span>Plant Offset: +0.00 kg</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Historical Trend Chart -->
+    <section class="panel chart-panel">
+      <div class="chart-toolbar">
+        <div>
+          <div class="panel-title">Weight &amp; Moisture Curve + RainPoint Light &amp; Temp</div>
+          <div class="panel-subtitle" style="display:flex; align-items:center; gap:0.85rem; flex-wrap:wrap; margin-top:0.2rem;">
+            <span style="display:inline-flex; align-items:center; gap:5px; color:#5eead4;">
+              <span style="width:10px; height:3px; background:#10b981; display:inline-block; border-radius:2px;"></span> Scale Weight / Moisture
+            </span>
+            <span style="display:inline-flex; align-items:center; gap:5px; color:#fdba74;">
+              <span style="width:10px; height:2px; border-top:2px dashed #fb923c; display:inline-block;"></span> RainPoint Temp (°C)
+            </span>
+            <span style="display:inline-flex; align-items:center; gap:5px; color:#fde047;">
+              <span style="width:9px; height:9px; background:rgba(250,204,21,0.35); border:1px solid #facc15; display:inline-block; border-radius:2px;"></span> RainPoint Light (Lux)
+            </span>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.55rem; flex-wrap:wrap; align-items:center;">
+          <div class="pill-group" id="chart-overlay-group" title="Toggle Lighting &amp; Temperature overlays">
+            <button type="button" id="btn-overlay-lux" class="pill-btn overlay-lux active">☀ Light</button>
+            <button type="button" id="btn-overlay-temp" class="pill-btn overlay-temp active">🌡 Temp</button>
+          </div>
+
+          <div class="pill-group" id="chart-mode-group">
+            <button type="button" class="pill-btn active" data-mode="weight">Weight (kg)</button>
+            <button type="button" class="pill-btn" data-mode="moisture">Moisture (%)</button>
+            <button type="button" class="pill-btn" data-mode="compare">Compare Plots</button>
+          </div>
+
+          <div class="pill-group" id="chart-range-group">
+            <button type="button" class="pill-btn" data-hours="6">6H</button>
+            <button type="button" class="pill-btn" data-hours="24">24H</button>
+            <button type="button" class="pill-btn" data-hours="72">3D</button>
+            <button type="button" class="pill-btn active" data-hours="168">7D</button>
+            <button type="button" class="pill-btn" data-hours="0">ALL</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-canvas-wrap">
+        <canvas id="telemetry-chart"></canvas>
+      </div>
+    </section>
+
+    <!-- Bottom Details: Detected Drip Shots + Raw Google Sheet Log -->
+    <section class="details-grid">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Auto-Detected Irrigation Shots</div>
+            <div class="panel-subtitle">Detected from upward load-cell weight jumps</div>
+          </div>
+          <span id="events-count-badge" class="status-chip tone-info mono">0 events</span>
+        </div>
+        <div id="irrigation-events-list" class="event-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Google Sheet Telemetry Log</div>
+            <div class="panel-subtitle">Columns: <span class="mono">Date, Time, Weight_kg</span></div>
+          </div>
+          <div style="display:flex; gap:0.45rem;">
+            <button type="button" id="btn-export-csv" class="btn btn-sm">
+              <i data-lucide="download"></i>
+              <span>CSV</span>
+            </button>
+            <a id="btn-open-active-sheet" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm">
+              <i data-lucide="external-link"></i>
+              <span>Sheet</span>
+            </a>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Weight (kg)</th>
+                <th>Moisture</th>
+                <th>Δ mL</th>
+              </tr>
+            </thead>
+            <tbody id="log-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom System Controls & Version Update Footer -->
+    <footer class="app-footer">
+      <div class="footer-top-row">
+        <div class="footer-brand-meta">
+          <div>
+            <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
+              <span style="font-weight:800; font-size:0.9rem; color:var(--text-primary);">KH CocoScale</span>
+              <span class="version-badge mono">App v1.7.0 · ESP32 FW v2.7</span>
+              <span class="mono" style="font-size:0.72rem; color:var(--text-secondary);">Updated: Nov 2026</span>
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">
+              Cocopeat Moisture Monitoring System · Gravimetric Load-Cell + RainPoint Climate Overlay
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-actions">
+          <button type="button" id="btn-open-hardware" class="btn" title="Remotely control ESP32 reading interval, battery sleep & LCD backlight">
+            <i data-lucide="cpu"></i>
+            <span>ESP32 &amp; LCD</span>
+          </button>
+
+          <button type="button" id="btn-open-stations" class="btn" title="Manage Plot 1, Plot 2, Plot 3 & add more scale stations">
+            <i data-lucide="layers"></i>
+            <span>Scale Stations</span>
+          </button>
+
+          <button type="button" id="btn-open-guide" class="btn" title="Google Sheet v2 Cloud Bridge & ESP32 firmware setup">
+            <i data-lucide="file-spreadsheet"></i>
+            <span>Sheet &amp; ESP32 Setup</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="footer-version-details">
+        <div class="footer-version-title mono">Version Update Details (v1.7.0 · Firmware v2.7)</div>
+        <div class="footer-changelog-grid">
+          <div class="changelog-item">
+            <span class="changelog-tag mono">v1.7.0</span>
+            <span>Added <b>In-App Scale Recalibration Wizard (FW v2.7)</b>: recalibrate load-cell with known test weights from the web app; updates correction multiplier &amp; syncs hardware <span class="mono">calFactor</span> to ESP32 Flash (<span class="mono">Preferences</span> NVS).</span>
+          </div>
+          <div class="changelog-item">
+            <span class="changelog-tag mono">v1.6.9</span>
+            <span>Added <b>3-Rule Drip Advisory &amp; Live Countdown</b>: automated gravimetric dry-back, temperature (&gt;28&deg;C) &amp; light (&gt;500 Lux) decision engine, plus 1-second live countdown to next data capture.</span>
+          </div>
+          <div class="changelog-item">
+            <span class="changelog-tag mono">v1.6.8</span>
+            <span>Calibrated <b>Battery ADC &amp; Solar Logic</b>: native ESP32 <span class="mono">analogReadMilliVolts()</span> eFuse curve calibration (5.28&times; divider multiplier) and strict Lux threshold filtering.</span>
+          </div>
+          <div class="changelog-item">
+            <span class="changelog-tag mono">v1.6.3</span>
+            <span>Added <b>Live Battery Telemetry (FW v2.5)</b>: reads 0-25V voltage divider on <span class="mono">GPIO 35</span>, displaying live battery % and voltage on app dashboard, LCD screen, and hardware modal.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Official KH Agrifarm Developer & Copyright Attribution Bar -->
+      <div class="footer-copyright-bar">
+        <div class="footer-copyright-left">
+          <img src="assets/kh-agrifarm-logo.png" alt="KH Agrifarm" class="footer-copyright-logo">
+          <span>Developed &amp; Engineered by <strong>KH Agrifarm</strong> · Precision Smart Farming Division</span>
+        </div>
+        <div class="footer-copyright-right">
+          &copy; 2026 <strong>KH Agrifarm</strong>. All rights reserved. Proprietary IoT hardware &amp; telemetry system.
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- MODAL 1: Bag Calibration & Thresholds -->
+  <div id="modal-calibrate" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="cal-modal-title">Calibrate Polybag &amp; Thresholds</div>
+        <button type="button" class="btn btn-sm" data-close="modal-calibrate">✕</button>
+      </div>
+
+      <form id="form-calibrate">
+        <div style="display:flex; gap:0.45rem; flex-wrap:wrap; margin-bottom:0.9rem; align-items:center;">
+          <span style="font-size:0.74rem; color:var(--text-secondary); font-weight:600;">Quick Presets:</span>
+          <button type="button" class="btn btn-sm" data-cal-preset="bench">Bench Test (0–0.65 kg)</button>
+          <button type="button" class="btn btn-sm" data-cal-preset="nursery">Small Pot (1.0–4.5 kg)</button>
+          <button type="button" class="btn btn-sm" data-cal-preset="polybag">Chili Polybag (3.5–13.5 kg)</button>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="cal-fc-kg">100% Field Capacity Weight (kg)</label>
+            <input type="number" id="cal-fc-kg" step="0.01" min="0.5" required>
+            <span class="form-hint">Bag weight 15–30 mins after full watering once bottom runoff stops.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="cal-dry-kg">0% Dry Baseline Tare Weight (kg)</label>
+            <input type="number" id="cal-dry-kg" step="0.01" min="0" required>
+            <span class="form-hint">Dry cocopeat + polybag + support tray weight before saturation.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="cal-biomass-kg">Plant &amp; Fruit Biomass Offset (kg)</label>
+            <input type="number" id="cal-biomass-kg" step="0.05" min="0" required>
+            <span class="form-hint">Subtracts growing chili plant + fruit weight over the season (0.00–3.00 kg).</span>
+          </div>
+
+          <div class="form-group">
+            <label for="cal-runoff-pct">Target Runoff % per Drip Shot</label>
+            <input type="number" id="cal-runoff-pct" step="1" min="0" max="45" required>
+            <span class="form-hint">Typically 15–20% in chili cocopeat to flush accumulated EC salts.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="cal-trig-pct">Irrigation Trigger (% Available Water)</label>
+            <input type="number" id="cal-trig-pct" step="1" min="20" max="95" required>
+            <span class="form-hint" id="cal-trig-hint">Refill at 70% (= 30% dry-back).</span>
+          </div>
+
+          <div class="form-group">
+            <label for="cal-crit-pct">Critical Stress Floor (% Available Water)</label>
+            <input type="number" id="cal-crit-pct" step="1" min="10" max="85" required>
+            <span class="form-hint" id="cal-crit-hint">High EC / wilting alert floor.</span>
+          </div>
+
+          <div class="form-group full">
+            <label for="cal-jump-kg">Minimum Weight Jump to Detect Irrigation Shot (kg)</label>
+            <input type="number" id="cal-jump-kg" step="0.01" min="0.05" max="5" required>
+            <span class="form-hint">Default 0.15 kg (150 mL) filters out wind vibration on chili canopy.</span>
+          </div>
+        </div>
+
+        <!-- Hardware Load-Cell Known-Weight Calibration Tool -->
+        <div class="cal-hardware-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+            <div style="font-size:0.79rem; font-weight:800; color:#38bdf8; text-transform:uppercase; letter-spacing:0.04em; display:flex; align-items:center; gap:0.4rem;">
+              <span>⚖️</span> Load-Cell Accuracy Calibration (Known Test Weight)
+            </div>
+            <span style="font-size:0.71rem; color:#5eead4; font-weight:600;">No re-flashing needed</span>
+          </div>
+          <div style="font-size:0.74rem; color:var(--text-secondary); margin-bottom:0.65rem;">
+            Place a known heavy weight on the scale (e.g. 5 kg dumbbell, 5-liter bottled water = 5.00 kg, or 10 kg fertilizer bag). The app automatically computes the correction multiplier and syncs it.
+          </div>
+          <div class="cal-inputs-grid">
+            <div class="form-group" style="margin-bottom:0;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
+                <label for="cal-scale-reading-input" style="font-size:0.72rem; color:var(--text-secondary); margin-bottom:0;">Current Scale Reading</label>
+                <button type="button" id="btn-fetch-live-scale" class="btn btn-sm" style="padding:0.12rem 0.45rem; font-size:0.68rem; border-color:rgba(56,189,248,0.4); color:#38bdf8;" title="Read live weight directly from scale">
+                  <i data-lucide="refresh-cw" style="width:11px; height:11px;"></i>
+                  <span>Live Read</span>
+                </button>
+              </div>
+              <div style="position:relative;">
+                <input type="number" id="cal-scale-reading-input" step="0.001" min="0.01" placeholder="e.g. 4.780" class="mono" style="padding:0.45rem 2rem 0.45rem 0.6rem; font-weight:700; font-size:1.05rem; width:100%; box-sizing:border-box;">
+                <span class="mono" style="position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); font-size:0.75rem; color:var(--text-secondary); pointer-events:none;">kg</span>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="cal-known-weight-input" style="font-size:0.72rem; color:var(--text-secondary); margin-bottom:0.25rem; display:block;">Actual Known Weight (kg)</label>
+              <div style="position:relative;">
+                <input type="number" id="cal-known-weight-input" step="0.001" min="0.05" placeholder="e.g. 5.000" class="mono" style="padding:0.45rem 2rem 0.45rem 0.6rem; font-weight:700; font-size:1.05rem; width:100%; box-sizing:border-box;">
+                <span class="mono" style="position:absolute; right:0.6rem; top:50%; transform:translateY(-50%); font-size:0.75rem; color:var(--text-secondary); pointer-events:none;">kg</span>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" id="btn-apply-known-cal" class="btn btn-primary btn-cal-submit">
+            <i data-lucide="crosshair"></i>
+            <span>Calibrate Scale (Lock Multiplier &amp; Sync ESP32)</span>
+          </button>
+
+          <div id="cal-hw-result-banner" class="mono" style="font-size:0.73rem; margin-top:0.6rem; display:none;"></div>
+
+          <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.65rem; padding-top:0.5rem; border-top:1px dashed rgba(148,163,184,0.18);">
+            <label for="cal-scale-multiplier" style="font-size:0.72rem; color:var(--text-secondary); margin-bottom:0;">Active Multiplier:</label>
+            <input type="number" id="cal-scale-multiplier" step="0.0001" min="0.1" max="10" value="1.0000" style="width:90px; padding:0.25rem 0.45rem; font-size:0.75rem;" class="mono">
+            <label for="cal-scale-offset" style="font-size:0.72rem; color:var(--text-secondary); margin-left:auto; margin-bottom:0;">Offset:</label>
+            <input type="number" id="cal-scale-offset" step="0.001" value="0.000" style="width:80px; padding:0.25rem 0.45rem; font-size:0.75rem;" class="mono">
+            <span class="mono" style="font-size:0.72rem; color:var(--text-secondary);">kg</span>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn" data-close="modal-calibrate">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Calibration</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Multi-Plot Scale Station Manager -->
+  <div id="modal-stations" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:740px;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Multi-Plot Scale Station Manager</div>
+          <div style="font-size:0.76rem; color:var(--text-secondary);">Enable Plot 2 &amp; Plot 3 when ready, or add extra scale stations anytime.</div>
+        </div>
+        <button type="button" class="btn btn-sm" data-close="modal-stations">✕</button>
+      </div>
+
+      <div id="stations-editor-container"></div>
+
+      <div class="form-group" style="margin-top:0.65rem;">
+        <label for="rainpoint-endpoint-input">RainPoint Cloud Telemetry Endpoint (Firebase JSON)</label>
+        <input type="text" id="rainpoint-endpoint-input" placeholder="https://kh-agrifarm-default-rtdb.asia-southeast1.firebasedatabase.app/telemetry.json">
+        <span class="form-hint">Streams live &amp; historical Solar Lighting (Lux) and Temperature (°C) from your RainPoint RF Gateway.</span>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+        <button type="button" id="btn-add-station" class="btn btn-sm">
+          <i data-lucide="plus"></i>
+          <span>Add Another Scale Station</span>
+        </button>
+
+        <div class="form-group" style="flex-direction:row; align-items:center; gap:0.5rem;">
+          <label for="poll-interval-select">Auto-Sync:</label>
+          <select id="poll-interval-select">
+            <option value="30">Every 30 sec</option>
+            <option value="60">Every 1 min</option>
+            <option value="180">Every 3 min</option>
+            <option value="300">Every 5 min</option>
+            <option value="0">Manual only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn" data-close="modal-stations">Cancel</button>
+        <button type="button" id="btn-save-stations" class="btn btn-primary">Save &amp; Sync Stations</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Google Sheet Cloud Bridge v2 & ESP32 Setup Guide -->
+  <div id="modal-guide" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:760px;">
+      <div class="modal-header">
+        <div class="modal-title">Google Apps Script v2.0 &amp; ESP32 Setup Guide</div>
+        <button type="button" class="btn btn-sm" data-close="modal-guide">✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:1.1rem;">
+        <div>
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.45rem; color:#5eead4;">
+            Step 1 — Upgrade Your Google Sheet Apps Script to v2.0 (Enables 2-Way App Control)
+          </div>
+          <ol class="step-list">
+            <li>Open your Google Sheet (<a href="https://docs.google.com/spreadsheets/d/1qNIP7qnraa2BVOawSMyFE7bcmNUvLZLjF65Scfz7Yd8/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;">open Sheet</a>) &rarr; click <strong>Extensions &rarr; Apps Script</strong>.</li>
+            <li>Click <strong>Copy v2 Apps Script</strong> below, replace everything inside <span class="mono">Code.gs</span>, and press <strong>Ctrl + S</strong> to save.</li>
+            <li>Click <strong>Deploy &rarr; Manage deployments</strong> &rarr; click the <strong>Pencil (Edit)</strong> icon &rarr; under <em>Version</em> select <strong>New version</strong> &rarr; click <strong>Deploy</strong>. <em>(This keeps your existing ESP32 URL unchanged!)</em></li>
+          </ol>
+        </div>
+
+        <div style="border-top:1px solid var(--border-subtle); padding-top:0.95rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <div style="font-weight:700; font-size:0.9rem; color:#7dd3fc;">
+              Step 2 — Copy Google Apps Script v2.0 &amp; ESP32 Sketch v2.0
+            </div>
+            <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+              <button type="button" id="btn-copy-esp32-sketch" class="btn btn-sm" style="border-color:rgba(56,189,248,0.45); color:#7dd3fc;">
+                <i data-lucide="cpu"></i>
+                <span>Copy Full ESP32 v2 Code</span>
+              </button>
+              <button type="button" id="btn-copy-apps-script" class="btn btn-primary btn-sm">
+                <i data-lucide="copy"></i>
+                <span>Copy v2 Apps Script</span>
+              </button>
+            </div>
+          </div>
+          <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.3rem;">
+            Also saved locally at <span class="mono">firmware/google_apps_script_v2.gs</span>, alongside your upgraded Arduino sketch at <span class="mono">firmware/cocoscale_esp32_v2/cocoscale_esp32_v2.ino</span>.
+          </p>
+          <pre id="apps-script-snippet" class="code-block" style="max-height:260px; overflow-y:auto;">const BRIDGE_VERSION = 2;
+const TIMEZONE = "Asia/Kuala_Lumpur";
+
+function doGet(e) {
+  const params = (e &amp;&amp; e.parameter) ? e.parameter : {};
+  const action = String(params.action || "").trim();
+  const plot = sanitizePlotName(params.plot || "Plot1");
+  const callback = params.callback ? String(params.callback).replace(/[^a-zA-Z0-9_$.]/g, "") : "";
+
+  try {
+    if (action === "setConfig") {
+      const updated = savePlotConfig(plot, params);
+      syncConfigSheetRow(plot, updated);
+      return respond({ ok: true, v: BRIDGE_VERSION, action: "setConfig", plot: plot, config: updated }, callback);
+    }
+
+    if (action === "getConfig") {
+      const cfg = loadPlotConfig(plot);
+      if (params.fw || params.rssi || params.ackTareId || params.applied) {
+        recordEsp32CheckIn(plot, cfg, params, false);
+      }
+      return respond(buildEspResponse(plot, cfg, false), callback);
+    }
+
+    if (params.weight !== undefined &amp;&amp; String(params.weight).trim() !== "") {
+      const weightVal = parseFloat(params.weight);
+      if (isNaN(weightVal)) return respond({ ok: false, v: BRIDGE_VERSION, error: "Invalid weight" }, callback);
+      appendWeightReading(plot, weightVal);
+      const cfg = loadPlotConfig(plot);
+      recordEsp32CheckIn(plot, cfg, params, true);
+      return respond(buildEspResponse(plot, cfg, true), callback);
+    }
+
+    return respond({ ok: true, v: BRIDGE_VERSION, service: "KH CocoScale Cloud Bridge v2.0", plot: plot, config: loadPlotConfig(plot) }, callback);
+  } catch (err) {
+    return respond({ ok: false, v: BRIDGE_VERSION, error: String(err &amp;&amp; err.message ? err.message : err) }, callback);
+  }
+}
+
+function sanitizePlotName(raw) {
+  const cleaned = String(raw || "Plot1").replace(/[^a-zA-Z0-9_-]/g, "");
+  return cleaned || "Plot1";
+}
+
+function getDefaultConfig() {
+  return { intervalMin: 1, powerMode: "always_on", lcdMode: "on", tareId: 0, updatedAt: "", lastSeenAt: "", lastAckTareId: 0, lastRssi: "", lastWeightKg: "", appliedState: "" };
+}
+
+function loadPlotConfig(plot) {
+  const raw = PropertiesService.getScriptProperties().getProperty("CFG_" + plot);
+  const base = getDefaultConfig();
+  if (!raw) return base;
+  try { return Object.assign(base, JSON.parse(raw)); } catch (_) { return base; }
+}
+
+function savePlotConfig(plot, params) {
+  const cfg = loadPlotConfig(plot);
+  if (params.intervalMin !== undefined) {
+    const m = parseInt(params.intervalMin, 10);
+    if (!isNaN(m)) cfg.intervalMin = Math.max(1, Math.min(240, m));
+  }
+  if (params.powerMode === "always_on" || params.powerMode === "smart_saver" || params.powerMode === "deep_sleep") cfg.powerMode = params.powerMode;
+  if (["on", "text_only", "flash", "off"].indexOf(String(params.lcdMode)) &gt;= 0) cfg.lcdMode = String(params.lcdMode);
+  if (String(params.tareCmd || "") === "1") cfg.tareId = Math.floor(Date.now() / 1000);
+  cfg.updatedAt = Utilities.formatDate(new Date(), TIMEZONE, "yyyy-MM-dd HH:mm:ss");
+  PropertiesService.getScriptProperties().setProperty("CFG_" + plot, JSON.stringify(cfg));
+  return cfg;
+}
+
+function recordEsp32CheckIn(plot, cfg, params, forceSheetUpdate) {
+  const now = new Date();
+  const prevSeen = cfg.lastSeenAt || "";
+  let stateChanged = false;
+  cfg.lastSeenAt = Utilities.formatDate(now, TIMEZONE, "yyyy-MM-dd HH:mm:ss");
+  if (params.rssi !== undefined &amp;&amp; params.rssi !== "") cfg.lastRssi = String(params.rssi);
+  if (params.weight !== undefined &amp;&amp; params.weight !== "") cfg.lastWeightKg = Number(parseFloat(params.weight).toFixed(3));
+  if (params.ackTareId !== undefined &amp;&amp; params.ackTareId !== "") {
+    const ack = parseInt(params.ackTareId, 10);
+    if (!isNaN(ack) &amp;&amp; ack !== cfg.lastAckTareId) { cfg.lastAckTareId = ack; stateChanged = true; }
+  }
+  if (params.applied !== undefined &amp;&amp; params.applied !== "" &amp;&amp; cfg.appliedState !== String(params.applied)) {
+    cfg.appliedState = String(params.applied);
+    stateChanged = true;
+  }
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty("CFG_" + plot, JSON.stringify(cfg));
+  const lastSw = Number(props.getProperty("LAST_SW_" + plot) || "0");
+  if (forceSheetUpdate || stateChanged || !prevSeen || (now.getTime() - lastSw &gt;= 55000)) {
+    props.setProperty("LAST_SW_" + plot, String(now.getTime()));
+    syncConfigSheetRow(plot, cfg);
+  }
+}
+
+function buildEspResponse(plot, cfg, logged) {
+  return { ok: true, v: BRIDGE_VERSION, logged: Boolean(logged), plot: plot, intervalMin: Number(cfg.intervalMin) || 1, powerMode: cfg.powerMode || "always_on", lcdMode: cfg.lcdMode || "on", tareId: Number(cfg.tareId) || 0 };
+}
+
+function appendWeightReading(plot, weightVal) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(plot);
+  if (!sheet) {
+    if (plot === "Plot1") sheet = ss.getSheets()[0];
+    else { sheet = ss.insertSheet(plot); sheet.appendRow(["Date", "Time", "Weight_kg"]); sheet.getRange("A1:C1").setFontWeight("bold"); }
+  }
+  const now = new Date();
+  sheet.appendRow([Utilities.formatDate(now, TIMEZONE, "yyyy-MM-dd"), Utilities.formatDate(now, TIMEZONE, "HH:mm:ss"), Number(weightVal.toFixed(3))]);
+}
+
+function syncConfigSheetRow(plot, cfg) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName("DeviceConfig");
+  const headers = ["Plot_Key", "Interval_Min", "Power_Mode", "LCD_Mode", "Tare_ID", "Updated_At", "Last_ESP32_Seen", "Last_Ack_Tare_ID", "Last_RSSI", "Applied_State"];
+  if (!sheet) { sheet = ss.insertSheet("DeviceConfig"); sheet.appendRow(headers); sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold"); }
+  const data = sheet.getDataRange().getValues();
+  let targetRow = -1;
+  for (let i = 1; i &lt; data.length; i++) { if (String(data[i][0]) === plot) { targetRow = i + 1; break; } }
+  const rowValues = [plot, cfg.intervalMin, cfg.powerMode, cfg.lcdMode, cfg.tareId || 0, cfg.updatedAt || "", cfg.lastSeenAt || "", cfg.lastAckTareId || 0, cfg.lastRssi || "", cfg.appliedState || ""];
+  if (targetRow &gt; 0) sheet.getRange(targetRow, 1, 1, rowValues.length).setValues([rowValues]);
+  else sheet.appendRow(rowValues);
+}
+
+function respond(obj, callback) {
+  const json = JSON.stringify(obj);
+  if (callback) return ContentService.createTextOutput(callback + "(" + json + ");").setMimeType(ContentService.MimeType.JAVASCRIPT);
+  return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+}</pre>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-close="modal-guide">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: ESP32 Hardware, Battery Sleep & LCD Backlight Remote Control -->
+  <div id="modal-hardware" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:680px;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="hw-modal-title">ESP32 Hardware &amp; LCD Control</div>
+          <div style="font-size:0.76rem; color:var(--text-secondary);">Remotely adjust reading gap, battery deep sleep &amp; 16x2 LCD backlight without re-flashing.</div>
+        </div>
+        <button type="button" class="btn btn-sm" data-close="modal-hardware">✕</button>
+      </div>
+
+      <div id="hw-modal-status-banner" class="hw-status-banner">
+        <div>
+          <div id="hw-modal-status-title" style="font-weight:700;">Checking ESP32 Cloud Bridge...</div>
+          <div id="hw-modal-status-sub" style="font-size:0.73rem; color:var(--text-secondary); margin-top:0.15rem;">Links via Google Apps Script v2.0</div>
+        </div>
+        <button type="button" id="btn-hw-open-v2-guide" class="btn btn-sm">
+          <i data-lucide="code-2"></i>
+          <span>v2 Script Setup</span>
+        </button>
+      </div>
+
+      <!-- Live ESP32 Wi-Fi Signal Strength & Battery Card -->
+      <div id="hw-wifi-telemetry-card" class="hw-wifi-card">
+        <div class="hw-wifi-left">
+          <div id="hw-wifi-bars" class="wifi-signal-bars" aria-hidden="true">
+            <span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="b4"></span>
+          </div>
+          <div>
+            <div style="font-size:0.71rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">ESP32 Connectivity &amp; Power</div>
+            <div id="hw-wifi-headline" class="mono" style="font-size:0.94rem; font-weight:800; color:#e2e8f0; margin-top:0.1rem;">Awaiting signal...</div>
+            <div id="hw-modal-online-badge" class="mono" style="font-size:0.73rem; margin-top:0.15rem; color:#94a3b8;">Checking scale connectivity...</div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div id="hw-battery-telemetry-headline" class="mono" style="font-size:0.88rem; font-weight:800; color:#34d399; cursor:pointer;" title="Click to view Battery, Solar &amp; Power Analytics">🔋 Power: --% (--V)</div>
+          <button type="button" id="btn-open-battery-from-hw" class="btn btn-sm" style="margin-top:0.25rem; padding:0.16rem 0.5rem; font-size:0.68rem; border-color:rgba(52,211,153,0.4); color:#34d399;" title="Open detailed battery discharge chart">📈 View Battery &amp; Solar</button>
+          <div id="hw-wifi-meta" class="mono hw-wifi-right" style="margin-top:0.2rem;">IP: --</div>
+        </div>
+      </div>
+
+      <form id="form-hardware">
+        <!-- 1. Reading Gap Duration -->
+        <div class="hw-section-title">1. Weight Reading &amp; Upload Gap</div>
+        <div class="hw-interval-pills" id="hw-interval-presets">
+          <button type="button" class="hw-interval-btn" data-min="1">1 min</button>
+          <button type="button" class="hw-interval-btn" data-min="5">5 min</button>
+          <button type="button" class="hw-interval-btn" data-min="10">10 min</button>
+          <button type="button" class="hw-interval-btn" data-min="15">15 min</button>
+          <button type="button" class="hw-interval-btn" data-min="30">30 min</button>
+          <button type="button" class="hw-interval-btn" data-min="60">60 min</button>
+          <div style="display:inline-flex; align-items:center; gap:0.35rem; margin-left:auto;">
+            <span style="font-size:0.74rem; color:var(--text-secondary);">Custom:</span>
+            <input type="number" id="hw-interval-input" min="1" max="240" step="1" value="1" style="width:74px; padding:0.35rem 0.5rem;" required>
+            <span class="mono" style="font-size:0.74rem; color:var(--text-secondary);">min</span>
+          </div>
+        </div>
+
+        <!-- 2. LCD Screen & Backlight -->
+        <div class="hw-section-title">2. 16x2 LCD Screen &amp; Backlight</div>
+        <div class="hw-option-grid" id="hw-lcd-options"></div>
+
+        <!-- 3. ESP32 Power / Battery Sleep Mode -->
+        <div class="hw-section-title">3. ESP32 Power &amp; Sleep Mode</div>
+        <div class="hw-option-grid" id="hw-power-options"></div>
+
+        <!-- Live Battery Runtime Estimator -->
+        <div class="hw-battery-box">
+          <div>
+            <div style="font-size:0.73rem; color:#5eead4; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Estimated Battery Consumption</div>
+            <div class="mono" style="font-size:1.05rem; font-weight:800; margin-top:0.15rem;">
+              <span id="hw-est-days">~1.0 days</span>
+              <span style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">(<span id="hw-est-ma">114</span> mA avg)</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.45rem;">
+            <label for="hw-battery-mah" style="font-size:0.74rem; color:var(--text-secondary);">Battery:</label>
+            <input type="number" id="hw-battery-mah" min="300" max="100000" step="100" value="3000" style="width:88px; padding:0.35rem 0.5rem;">
+            <span class="mono" style="font-size:0.74rem; color:var(--text-secondary);">mAh</span>
+          </div>
+        </div>
+
+        <!-- Endpoint & Plot Key -->
+        <div class="form-grid" style="margin-bottom:0.5rem;">
+          <div class="form-group">
+            <label for="hw-plot-key">ESP32 Plot ID (<span class="mono">PLOT_ID</span>)</label>
+            <input type="text" id="hw-plot-key" placeholder="Plot1" required>
+          </div>
+          <div class="form-group">
+            <label>Zero Empty Scale Remotely</label>
+            <button type="button" id="btn-hw-remote-tare" class="btn btn-sm" style="justify-content:center; height:36px; border-color:rgba(245,158,11,0.4); color:#fcd34d;">
+              <i data-lucide="rotate-ccw"></i>
+              <span>Queue Remote Tare (Empty Scale Only)</span>
+            </button>
+          </div>
+          <div class="form-group full">
+            <label for="hw-script-url">Google Apps Script Web App URL (<span class="mono">/exec</span>)</label>
+            <input type="text" id="hw-script-url" placeholder="https://script.google.com/macros/s/.../exec" required>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn" data-close="modal-hardware">Cancel</button>
+          <button type="submit" id="btn-hw-apply" class="btn btn-primary">
+            <i data-lucide="send"></i>
+            <span>Send Settings to ESP32</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 5: Dedicated ESP32 Battery & Power Analytics -->
+  <div id="modal-battery" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:720px;">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" style="display:flex; align-items:center; gap:0.5rem;">
+            <span>🔋</span> ESP32 Battery &amp; Discharge Analytics
+          </div>
+          <div style="font-size:0.76rem; color:var(--text-secondary);">Real-time 18650/LiPo voltage, discharge trajectory &amp; runtime forecasting (GPIO 35).</div>
+        </div>
+        <button type="button" class="btn btn-sm" data-close="modal-battery">✕</button>
+      </div>
+
+      <!-- Battery & Power KPI Stats Row -->
+      <div class="battery-kpi-grid">
+        <div class="battery-kpi-card">
+          <div class="battery-kpi-sub">POWER SOURCE</div>
+          <div id="batt-kpi-source" class="battery-kpi-val" style="color:#facc15; font-size:1.15rem;">--</div>
+          <div class="battery-kpi-note" id="batt-kpi-source-sub">Detecting power source...</div>
+        </div>
+        <div class="battery-kpi-card">
+          <div class="battery-kpi-sub">SCALE STATUS</div>
+          <div id="batt-kpi-online" class="battery-kpi-val" style="color:#34d399; font-size:1.15rem;">--</div>
+          <div class="battery-kpi-note" id="batt-kpi-online-sub">Checking heartbeat...</div>
+        </div>
+        <div class="battery-kpi-card">
+          <div class="battery-kpi-sub">BATTERY LEVEL</div>
+          <div id="batt-kpi-pct" class="battery-kpi-val" style="color:#34d399;">-- %</div>
+          <div class="battery-kpi-note" id="batt-kpi-status-sub">Awaiting data</div>
+        </div>
+        <div class="battery-kpi-card">
+          <div class="battery-kpi-sub">LIVE VOLTAGE</div>
+          <div id="batt-kpi-volt" class="battery-kpi-val" style="color:#38bdf8;">-- V</div>
+          <div class="battery-kpi-note" id="batt-kpi-volt-sub">0-25V Sensor · GPIO 35</div>
+        </div>
+        <div class="battery-kpi-card">
+          <div class="battery-kpi-sub">CHARGE / DISCHARGE</div>
+          <div id="batt-kpi-rate" class="battery-kpi-val" style="color:#fdba74;">-- %/day</div>
+          <div class="battery-kpi-note" id="batt-kpi-rate-sub">From log history</div>
+        </div>
+        <div class="battery-kpi-card">
+          <div class="battery-kpi-sub">EST. RUNTIME</div>
+          <div id="batt-kpi-days" class="battery-kpi-val" style="color:#fde047;">~-- days</div>
+          <div class="battery-kpi-note" id="batt-kpi-mode-sub">Mode: Always Awake</div>
+        </div>
+      </div>
+
+      <!-- Dedicated Battery Chart -->
+      <div style="background:rgba(15,23,42,0.5); border:1px solid rgba(148,163,184,0.18); border-radius:10px; padding:0.9rem; margin-bottom:1rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem; flex-wrap:wrap; gap:0.4rem;">
+          <div>
+            <div style="font-size:0.86rem; font-weight:700; color:#f1f5f9;">Battery Discharge &amp; Voltage History</div>
+            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:0.1rem;">
+              <span style="color:#34d399;">■ Battery Level (%)</span> &nbsp;·&nbsp; <span style="color:#38bdf8;">--- Voltage (V)</span>
+            </div>
+          </div>
+          <div class="pill-group" id="batt-chart-range-group">
+            <button type="button" class="pill-btn" data-hours="12">12H</button>
+            <button type="button" class="pill-btn active" data-hours="24">24H</button>
+            <button type="button" class="pill-btn" data-hours="72">3D</button>
+            <button type="button" class="pill-btn" data-hours="168">7D</button>
+            <button type="button" class="pill-btn" data-hours="0">ALL</button>
+          </div>
+        </div>
+        <div style="position:relative; height:240px; width:100%;">
+          <canvas id="battery-history-chart"></canvas>
+          <div id="batt-chart-empty" class="hidden" style="position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; background:rgba(15,23,42,0.85); border-radius:8px; text-align:center; padding:1rem;">
+            <div style="font-size:1.6rem; margin-bottom:0.3rem;">🔋</div>
+            <div style="font-size:0.86rem; font-weight:700; color:#cbd5e1;">Awaiting Battery History Records</div>
+            <div style="font-size:0.75rem; color:var(--text-secondary); max-width:380px; margin-top:0.25rem;">
+              Once your ESP32 with firmware v2.5 logs readings with the voltage sensor on GPIO 35, your discharge curve will display here automatically.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Power Mode Tips & Quick Link -->
+      <div style="background:rgba(30,41,59,0.45); border:1px solid rgba(148,163,184,0.18); border-radius:10px; padding:0.85rem 1rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem;">
+        <div>
+          <div style="font-size:0.78rem; font-weight:700; color:#5eead4;">💡 Tip: Maximize Battery Life</div>
+          <div style="font-size:0.74rem; color:var(--text-secondary); margin-top:0.15rem; max-width:440px;">
+            Switch to <strong>Smart Saver</strong> or <strong>Ultra Deep Sleep</strong> in Hardware Control to make a 3000mAh battery last from weeks up to months!
+          </div>
+        </div>
+        <button type="button" id="btn-batt-open-hardware" class="btn btn-sm" style="border-color:rgba(94,234,212,0.4); color:#5eead4;">
+          <i data-lucide="sliders"></i>
+          <span>Configure Power Mode</span>
+        </button>
+      </div>
+
+      <div class="modal-footer" style="margin-top:1rem; padding-top:0.75rem; border-top:1px solid rgba(148,163,184,0.15); display:flex; justify-content:flex-end;">
+        <button type="button" class="btn" data-close="modal-battery">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
+
+  <script src="js/config.js?v=1.7.7"></script>
+  <script src="js/moistureEngine.js?v=1.7.7"></script>
+  <script src="js/sheetsService.js?v=1.7.7"></script>
+  <script src="js/rainpointService.js?v=1.7.7"></script>
+  <script src="js/deviceService.js?v=1.7.7"></script>
+  <script src="js/app.js?v=1.7.7"></script>
+</body>
+</html>

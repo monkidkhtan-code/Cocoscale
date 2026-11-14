@@ -1,0 +1,11 @@
+{
+  "name": "cocopeat-weight-monitor",
+  "version": "1.0.0",
+  "description": "KH Agrifarm — Gravimetric Cocopeat Moisture & Load-Cell Scale Monitor (Multi-Plot)",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8080",
+    "build": "echo 'Static PWA ready'"
+  },
+  "dependencies": {}
+}
