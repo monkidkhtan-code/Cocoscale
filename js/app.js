@@ -15,7 +15,7 @@ class CocoScaleApp {
     this.chartHours = 24; // Default 24H on landing
     this.showLuxOverlay = true;
     this.showTempOverlay = true;
-    this.batteryHours = 24;
+    this.batteryHours = 12; // Default 12H
     this.batteryChart = null;
     this.chartInstance = null;
     this.pollTimer = null;
@@ -32,7 +32,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.8.1").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.8.2").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1927,7 +1927,21 @@ class CocoScaleApp {
 
   openBatteryModal() {
     this.openModal("modal-battery");
+    const battRangeGroup = document.getElementById("batt-chart-range-group");
+    if (battRangeGroup) {
+      battRangeGroup.querySelectorAll(".pill-btn").forEach((b) => {
+        b.classList.toggle("active", Number(b.dataset.hours) === this.batteryHours);
+      });
+    }
     this.renderBatteryModal();
+    // Re-render once modal layout reflow is complete to ensure canvas width is measured directly
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (!document.getElementById("modal-battery").classList.contains("hidden")) {
+          this.renderBatteryChart();
+        }
+      }, 40);
+    });
   }
 
   renderBatteryModal() {
@@ -2046,10 +2060,14 @@ class CocoScaleApp {
     const st = this.getSelectedStation();
     if (!st) return;
 
-    const cutoffMs = this.batteryHours > 0 ? Date.now() - this.batteryHours * 3600000 : 0;
     const rawRows = this.getStationRows(st.id);
     const dc = st.deviceControl || {};
     const cloud = dc.plotKey ? this.deviceCloudMap[dc.plotKey] : null;
+
+    const latestRowMs = rawRows.length > 0 ? rawRows[rawRows.length - 1].ts.getTime() : 0;
+    const liveCloudMs = cloud && cloud.lastSeenDate ? cloud.lastSeenDate.getTime() : 0;
+    const anchorMs = Math.max(Date.now(), latestRowMs, liveCloudMs);
+    const cutoffMs = this.batteryHours > 0 && anchorMs > 0 ? anchorMs - this.batteryHours * 3600000 : 0;
 
     const ptsMap = new Map();
     rawRows.forEach((r) => {
