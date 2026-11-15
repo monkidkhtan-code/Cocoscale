@@ -32,7 +32,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.8.6").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.8.7").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -81,6 +81,10 @@ class CocoScaleApp {
     document.getElementById("btn-instant-lcd-toggle").addEventListener("click", () => this.instantToggleLcdBacklight());
     document.getElementById("btn-open-stations").addEventListener("click", () => this.openStationsModal());
     document.getElementById("btn-open-guide").addEventListener("click", () => this.openModal("modal-guide"));
+    const btnChangelog = document.getElementById("btn-open-changelog");
+    if (btnChangelog) {
+      btnChangelog.addEventListener("click", () => this.openModal("modal-changelog"));
+    }
     document.getElementById("btn-open-calibrate").addEventListener("click", () => this.openCalibrateModal());
     document.getElementById("btn-set-fc-now").addEventListener("click", () => this.setCurrentAsFieldCapacity());
     document.getElementById("btn-export-csv").addEventListener("click", () => this.exportActiveCsv());
