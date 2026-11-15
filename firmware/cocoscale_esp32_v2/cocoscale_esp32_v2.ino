@@ -35,6 +35,7 @@
 #include "esp_sleep.h"
 #include "esp_bt.h"
 #include "driver/rtc_io.h"
+#include "driver/gpio.h"
 
 // --- Station Identity (Change to "Plot2" / "Plot3" for Scales #2 & #3) ---
 const char* PLOT_ID    = "Plot1";
@@ -428,7 +429,15 @@ void enterUltraHardwareDeepSleep() {
   lcd.noBacklight();
   lcd.noDisplay();
   scale.power_down();
+
+  // CRITICAL: Lock HX711 PD_SCK (GPIO 18) HIGH across deep sleep!
+  // Without gpio_hold_en + gpio_deep_sleep_hold_en, GPIO 18 drops LOW when ESP32 enters
+  // esp_deep_sleep_start(), which wakes the HX711 & load-cell bridge back up (~18mA drain)!
+  digitalWrite(LOADCELL_SCK_PIN, HIGH);
+  gpio_hold_en((gpio_num_t)LOADCELL_SCK_PIN);
   digitalWrite(ONBOARD_BLUE_LED, LOW);
+  gpio_hold_en((gpio_num_t)ONBOARD_BLUE_LED);
+  gpio_deep_sleep_hold_en();
 
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
@@ -949,7 +958,9 @@ void pollButtonAndSerial() {
 // Setup & Main Loop
 // ============================================================================
 void setup() {
-  // 1. Disable unused Bluetooth hardware & onboard Blue LED immediately (~8-12mA saved)
+  // 1. Release deep-sleep GPIO latches & disable unused Bluetooth + Blue LED immediately
+  gpio_hold_dis((gpio_num_t)LOADCELL_SCK_PIN);
+  gpio_hold_dis((gpio_num_t)ONBOARD_BLUE_LED);
   btStop();
   pinMode(ONBOARD_BLUE_LED, OUTPUT);
   digitalWrite(ONBOARD_BLUE_LED, LOW);
@@ -960,14 +971,19 @@ void setup() {
   readBatteryVoltageAndPct();
 
   Serial.begin(115200);
-  delay(150);
+  delay(80);
 
   loadSavedPreferences();
   esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
-  bool silentTimerWake = (wakeCause == ESP_SLEEP_WAKEUP_TIMER) && (cfgPowerMode == "deep_sleep") && (cfgLcdMode != "on");
+  bool silentTimerWake = (wakeCause == ESP_SLEEP_WAKEUP_TIMER) && (cfgPowerMode == "deep_sleep");
+
+  if (silentTimerWake) {
+    // Run unattended deep-sleep timer wakes at 80 MHz to cut CPU active current by ~40mA
+    setCpuFrequencyMhz(80);
+    lowCpuClockActive = true;
+  }
 
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
-  lcd.init();
 
   if (wakeCause == ESP_SLEEP_WAKEUP_EXT0) {
     // Woken by physical BOOT button press! Keep LCD lit & Wi-Fi listening for 60s
@@ -979,12 +995,14 @@ void setup() {
   }
 
   if (silentTimerWake) {
-    // Silent background wake-up in Ultra Deep Sleep: keep LCD completely dark to save 25mA!
-    lcd.noBacklight();
-    lcd.noDisplay();
+    // Silent background wake-up in Ultra Deep Sleep: skip lcd.init() flash & force PCF8574 dark (0x00)
+    Wire.beginTransmission(0x27);
+    Wire.write(0x00);
+    Wire.endTransmission();
     lcdDisplayActive = false;
     lcdBacklightActive = false;
   } else {
+    lcd.init();
     lcd.display();
     lcd.backlight();
     lcdDisplayActive = true;
@@ -996,13 +1014,9 @@ void setup() {
   }
 
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
-  scale.power_up();
-  hx711PoweredUp = true;
-  unsigned long hxWait = millis();
-  while (!scale.is_ready() && (millis() - hxWait < 2000)) {
-    delay(25);
-  }
-  restoreOrInitScaleTare();
+  // Keep HX711 powered down during Wi-Fi connect & Firebase sync to save ~18mA during RF TX
+  scale.power_down();
+  hx711PoweredUp = false;
 
   setupWiFiMulti(18);
   setupLocalHttpServer();
@@ -1014,15 +1028,28 @@ void setup() {
     saveConfigPreferences();
   }
 
-  // Take stabilized weight reading & upload
+  // Wake HX711 briefly (~1.1s) just to take the stabilized weight reading, then power down immediately
+  scale.power_up();
+  hx711PoweredUp = true;
+  unsigned long hxWait = millis();
+  while (!scale.is_ready() && (millis() - hxWait < 1200)) {
+    delay(20);
+  }
+  restoreOrInitScaleTare();
+
   float initialWeight = readStabilizedWeightKg(11);
   Serial.printf("[BOOT] Stabilized Weight: %.3f kg\n", initialWeight);
 
+  if (cfgPowerMode != "always_on" && millis() >= tempLightUntilMs) {
+    scale.power_down();
+    hx711PoweredUp = false;
+  }
+
   if (!silentTimerWake) {
     lcd.clear();
+    applyPowerAndLcdState();
+    renderLcdScreen(initialWeight);
   }
-  applyPowerAndLcdState();
-  renderLcdScreen(initialWeight);
 
   uploadWeightToGoogleSheet(initialWeight);
   lastLogTime = millis();
