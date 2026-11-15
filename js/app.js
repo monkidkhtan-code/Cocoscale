@@ -1673,16 +1673,24 @@ class CocoScaleApp {
 
     // Hardware ESP32 calibration factor:
     // Scale Weight = Counts / Factor -> New Factor = Base Factor * (currentRaw / knownWeight)
-    const baseHwFactor = (cloud?.calFactor && cloud.calFactor > 1000) ? cloud.calFactor : 99833.0;
-    const newHwCalFactor = Math.round(baseHwFactor * (currentRaw / knownWeight));
+    const hasHwCalSupport = (cloud?.fw && parseFloat(cloud.fw) >= 2.7);
+    const baseHwFactor = (hasHwCalSupport && cloud?.calFactor && cloud.calFactor > 10) ? cloud.calFactor : 99833.0;
+    const newHwCalFactor = Math.max(10, Math.round(baseHwFactor * (currentRaw / knownWeight)));
+
+    // If ESP32 is on FW >= 2.7, hardware itself scales the reading so software multiplier stays 1.0;
+    // if ESP32 is on FW <= 2.6, software multiplier scales the web dashboard reading immediately.
+    const effectiveMultiplier = hasHwCalSupport ? 1.0 : newMultiplier;
 
     // Update inputs and station config
-    if (multInput) multInput.value = newMultiplier.toFixed(4);
+    if (multInput) multInput.value = effectiveMultiplier.toFixed(4);
     if (offsetInput) offsetInput.value = "0.000";
 
-    st.calibration.scaleMultiplier = newMultiplier;
+    st.calibration.scaleMultiplier = effectiveMultiplier;
     st.calibration.scaleOffset = newOffset;
     ConfigStore.save(this.config);
+
+    const scriptUrl = st.deviceControl?.scriptUrl || this.config.defaultScriptUrl;
+    SheetsService.pushSheetBagCalibration(scriptUrl, plotKey, st.calibration);
 
     // Provide immediate UI visual feedback
     if (resBanner) {
@@ -1692,14 +1700,14 @@ class CocoScaleApp {
       resBanner.style.background = "rgba(52, 211, 153, 0.12)";
       resBanner.style.border = "1px solid rgba(52, 211, 153, 0.35)";
       resBanner.style.color = "#34d399";
-      resBanner.innerHTML = `✓ <strong>Calibrated Successfully!</strong> Scale reading <code>${currentRaw.toFixed(2)} kg</code> corrected to <code>${knownWeight.toFixed(2)} kg</code>.<br><span style="font-size:0.68rem; color:#94a3b8;">Correction multiplier: <strong>${newMultiplier.toFixed(4)}</strong> · Syncing factor <strong>${newHwCalFactor}</strong> to ESP32 Flash memory...</span>`;
+      resBanner.innerHTML = `✓ <strong>Calibrated Successfully!</strong> Scale reading <code>${currentRaw.toFixed(2)} kg</code> corrected to <code>${knownWeight.toFixed(2)} kg</code>.<br><span style="font-size:0.68rem; color:#94a3b8;">New ESP32 Hardware Factor: <strong>${newHwCalFactor}</strong> · App Multiplier: <strong>${effectiveMultiplier.toFixed(4)}</strong></span>`;
     }
 
     this.showToast(`Calibrated ${st.shortName} with ${knownWeight.toFixed(2)} kg test weight!`);
 
     // Sync calibration factor to ESP32 Flash Preferences via Firebase RTDB & Direct LAN
     try {
-      const pushRes = await DeviceService.pushConfig(this.config.appsScriptUrl, {
+      const pushRes = await DeviceService.pushConfig(scriptUrl, {
         plotKey,
         intervalMin: cloud?.intervalMin || st.deviceControl?.intervalMin || 1,
         powerMode: cloud?.powerMode || st.deviceControl?.powerMode || "always_on",
@@ -1710,7 +1718,7 @@ class CocoScaleApp {
       if (pushRes?.ok) {
         this.scheduleFastDeviceAckPoll(plotKey);
         if (resBanner) {
-          resBanner.innerHTML += `<br><span style="font-size:0.68rem; color:#38bdf8;">✓ Synced to ESP32 via ${pushRes.via === "lan" ? "Instant LAN (<50ms)" : "Firebase RTDB"} (Flash NVS permanent).</span>`;
+          resBanner.innerHTML += `<br><span style="font-size:0.68rem; color:#38bdf8;">✓ Synced factor <strong>${newHwCalFactor}</strong> to Firebase/ESP32 (Requires FW v2.7 on ESP32 to update physical LCD).</span>`;
         }
       }
     } catch (_) {}
@@ -1755,13 +1763,20 @@ class CocoScaleApp {
       `Critical warning below ${critKg.toFixed(2)} kg scale weight.`;
   }
 
-  saveCalibrationForm() {
+  async saveCalibrationForm() {
     const st = this.getSelectedStation();
     const fc = parseFloat(document.getElementById("cal-fc-kg").value);
     const dry = parseFloat(document.getElementById("cal-dry-kg").value);
     if (fc <= dry + 0.05) {
       this.showToast("Field Capacity weight must be at least 0.05 kg heavier than Dry Tare weight.");
       return;
+    }
+
+    // If user entered a Known Test Weight in the hardware box and clicked Save Calibration directly, apply it automatically
+    const knownVal = parseFloat(document.getElementById("cal-known-weight-input")?.value);
+    const readingVal = parseFloat(document.getElementById("cal-scale-reading-input")?.value);
+    if (!isNaN(knownVal) && knownVal > 0.05 && !isNaN(readingVal) && readingVal > 0.01) {
+      await this.applyKnownWeightCalibration();
     }
 
     const mult = parseFloat(document.getElementById("cal-scale-multiplier")?.value);

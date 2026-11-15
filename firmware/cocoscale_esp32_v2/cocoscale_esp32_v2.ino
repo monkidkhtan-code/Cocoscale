@@ -94,6 +94,7 @@ String        cfgLcdMode           = "off";         // "on" | "text_only" | "fla
 volatile long lastAckTareId        = 0;
 volatile long pendingRemoteTareId  = 0;
 volatile bool pendingConfigApply   = false;
+volatile bool pendingCalFactorApply = false;
 volatile bool pendingFlashPulse    = false;
 volatile bool pendingSheetUpload   = false;
 volatile float uploadWeightPayload = 0.0f;
@@ -182,7 +183,7 @@ void loadSavedPreferences() {
   if (cfgPowerMode != "always_on" && cfgPowerMode != "smart_saver" && cfgPowerMode != "deep_sleep") {
     cfgPowerMode = "smart_saver";
   }
-  if (cfgCalFactor < 1000.0f || cfgCalFactor > 5000000.0f) {
+  if (cfgCalFactor < 10.0f || cfgCalFactor > 10000000.0f) {
     cfgCalFactor = DEFAULT_CALIBRATION_FACTOR;
   }
 }
@@ -563,10 +564,14 @@ void renderLcdScreen(float weightKg) {
 bool parseAndStageConfig(int newInterval, const String& newPower, const String& newLcd, long remoteTareId, float newCalFactor = 0.0f) {
   bool changed = false;
 
-  if (newCalFactor >= 1000.0f && newCalFactor <= 5000000.0f && fabs(newCalFactor - cfgCalFactor) > 1.0f) {
+  if (newCalFactor >= 10.0f && newCalFactor <= 10000000.0f && fabs(newCalFactor - cfgCalFactor) > 0.5f) {
     Serial.printf("[INSTANT CMD] CalFactor: %.1f -> %.1f\n", cfgCalFactor, newCalFactor);
     cfgCalFactor = newCalFactor;
     scale.set_scale(cfgCalFactor);
+    weightRingCnt = 0;
+    weightRingIdx = 0;
+    pendingCalFactorApply = true;
+    tempLightUntilMs = millis() + 30000UL;
     cmdBannerText = "App: Calibrated!";
     cmdBannerUntilMs = millis() + 3000UL;
     changed = true;
@@ -897,6 +902,15 @@ void pollButtonAndSerial() {
     pendingConfigApply = false;
     saveConfigPreferences();
     applyPowerAndLcdState();
+    if (pendingCalFactorApply) {
+      pendingCalFactorApply = false;
+      ensureHx711Awake();
+      scale.set_scale(cfgCalFactor);
+      weightRingCnt = 0;
+      weightRingIdx = 0;
+      currentSmoothedWeightKg = readStabilizedWeightKg(7);
+      syncFirebaseDeviceNode(true);
+    }
     renderLcdScreen(currentSmoothedWeightKg);
   }
 
@@ -976,7 +990,7 @@ void setup() {
     lcdDisplayActive = true;
     lcdBacklightActive = true;
     lcd.setCursor(0, 0);
-    lcd.print("KH CocoScale 2.6");
+    lcd.print("KH CocoScale 2.7");
     lcd.setCursor(0, 1);
     lcd.print("Connecting WiFi ");
   }
