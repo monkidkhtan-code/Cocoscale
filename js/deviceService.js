@@ -290,23 +290,46 @@ class DeviceService {
       ? Math.max(0, Math.min(100, Math.round(cloud.battPct)))
       : Math.max(0, Math.min(100, Math.round(((volt - 3.2) / (4.2 - 3.2)) * 100)));
 
-    // Calculate voltage trend & slope over recent rows (last 2-10 rows)
+    // Calculate voltage trend & slope over recent continuous session (last 15 mins to 4 hours)
     let slopePerDay = 0;
     let isRising = false;
     let hasSlope = false;
 
     if (Array.isArray(historicalRows) && historicalRows.length >= 2) {
-      const validRows = historicalRows.filter((r) => r.battPct !== null && !isNaN(r.battPct) && r.ts instanceof Date);
+      const validRows = historicalRows.filter((r) =>
+        r.battPct !== null &&
+        !isNaN(r.battPct) &&
+        r.ts instanceof Date &&
+        (r.battVolt === null || r.battVolt === undefined || (r.battVolt >= 2.5 && r.battVolt <= 4.38))
+      );
       if (validRows.length >= 2) {
-        const first = validRows[0];
         const last = validRows[validRows.length - 1];
+        let first = validRows[0];
+
+        // Walk backwards from latest reading up to 3.5 hours to find the start of the current continuous trend
+        for (let i = validRows.length - 1; i >= 0; i--) {
+          const cur = validRows[i];
+          const ageHours = (last.ts.getTime() - cur.ts.getTime()) / 3600000;
+          if (ageHours > 3.5 && (last.ts.getTime() - first.ts.getTime()) / 3600000 >= 0.15) {
+            break;
+          }
+          if (i < validRows.length - 1) {
+            const next = validRows[i + 1];
+            const stepPct = Math.abs(next.battPct - cur.battPct);
+            const stepGapMin = (next.ts.getTime() - cur.ts.getTime()) / 60000;
+            // Stop before a sudden >22% jump in <15 mins (battery swap or charger plug/unplug)
+            if (stepPct > 22 && stepGapMin < 15) {
+              break;
+            }
+          }
+          first = cur;
+        }
+
         const hours = (last.ts.getTime() - first.ts.getTime()) / 3600000;
-        // Ignore step jumps from calibration / reflash / battery swap (>20% or >0.25V change in < 1h)
         const pctDelta = last.battPct - first.battPct;
         const vDelta = (last.battVolt && first.battVolt) ? (last.battVolt - first.battVolt) : 0;
-        const isStepJump = hours < 1.0 && (Math.abs(pctDelta) > 20 || Math.abs(vDelta) > 0.25);
 
-        if (hours >= 0.25 && !isStepJump) {
+        if (hours >= 0.1) {
           hasSlope = true;
           slopePerDay = (pctDelta / hours) * 24;
           // Genuine charging slope: at least +1.5% per day and +35mV rise above noise
@@ -765,6 +788,10 @@ class DeviceService {
       totalHours: Math.round(totalHours),
       days: Math.round(days * 10) / 10
     };
+  }
+
+  static estimateBatteryDays(powerMode = "always_on", batteryMah = 3000, intervalMin = 15, lcdMode = "off") {
+    return this.estimateBatteryProfile({ intervalMin, powerMode, lcdMode, batteryMah });
   }
 
   static formatGmt8Now() {

@@ -32,7 +32,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.8.5").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.8.6").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -2015,23 +2015,43 @@ class CocoScaleApp {
 
     // 4. Power Mode & Runtime
     const pMode = cloud?.powerMode || dc.powerMode || "always_on";
+    const lMode = cloud?.lcdMode || dc.lcdMode || "on";
     const pMeta = DeviceService.POWER_MODES.find((x) => x.id === pMode) || DeviceService.POWER_MODES[0];
     const batMah = Math.max(300, Number(cloud?.batteryMah || dc.batteryMah) || 3000);
-    const est = DeviceService.estimateBatteryDays(pMode, batMah);
+    const est = DeviceService.estimateBatteryProfile({
+      intervalMin: mins,
+      powerMode: pMode,
+      lcdMode: lMode,
+      batteryMah: batMah
+    });
 
-    if (modeSub) modeSub.textContent = `Mode: ${pMeta.label.split(" (")[0]}`;
+    const curPctRatio = (pwr.hasData && pwr.pct !== null && pwr.pct > 0) ? (pwr.pct / 100) : 1.0;
+    const remDays = Math.max(0.1, est.days * curPctRatio);
+    const remRuntimeStr = remDays < 1.0
+      ? `~${Math.max(1, Math.round(remDays * 24))} hrs`
+      : `~${remDays.toFixed(1)} days`;
+    const fullRuntimeStr = est.days < 1.0
+      ? `~${Math.max(1, Math.round(est.days * 24))} hrs`
+      : `~${est.days.toFixed(1)} days`;
+
+    if (modeSub) {
+      const modeName = pMeta.label.split(" (")[0];
+      modeSub.textContent = pwr.isCharging
+        ? `Charging · Full: ${fullRuntimeStr} (${modeName})`
+        : `Mode: ${modeName} (Full: ${fullRuntimeStr})`;
+    }
     if (daysEl) {
       if (pwr.isUsbDirect) {
         daysEl.textContent = "Unlimited";
         daysEl.style.color = "#38bdf8";
       } else if (pwr.isSolar) {
-        daysEl.textContent = "Continuous (Solar)";
+        daysEl.textContent = `${remRuntimeStr}`;
         daysEl.style.color = "#facc15";
       } else if (pwr.isCharging) {
-        daysEl.textContent = "Charging";
+        daysEl.textContent = `${remRuntimeStr}`;
         daysEl.style.color = "#2dd4bf";
       } else {
-        daysEl.textContent = `~${est.days.toFixed(1)} days`;
+        daysEl.textContent = remRuntimeStr;
         daysEl.style.color = "#fde047";
       }
     }
@@ -2043,19 +2063,21 @@ class CocoScaleApp {
         rateEl.style.color = "#38bdf8";
         rateSub.textContent = "Direct USB power supply";
       } else if (pwr.slopePerDay !== undefined && Math.abs(pwr.slopePerDay) > 0.05) {
+        const perHr = pwr.slopePerDay / 24;
         if (pwr.slopePerDay > 0) {
           rateEl.textContent = `+${pwr.slopePerDay.toFixed(1)} %/day`;
           rateEl.style.color = pwr.isSolar ? "#facc15" : "#34d399";
-          rateSub.textContent = pwr.isSolar ? "Solar charging detected" : "Charging detected";
+          rateSub.textContent = `${pwr.isSolar ? "Solar" : "USB"} charging (+${perHr.toFixed(1)} %/hr)`;
         } else {
           rateEl.textContent = `${pwr.slopePerDay.toFixed(1)} %/day`;
           rateEl.style.color = "#fdba74";
-          rateSub.textContent = "Discharge trend from logs";
+          rateSub.textContent = `Discharging (${perHr.toFixed(1)} %/hr from logs)`;
         }
       } else {
-        rateEl.textContent = "Stable";
+        const estRatePerDay = -(100 / Math.max(0.2, est.days));
+        rateEl.textContent = `${estRatePerDay.toFixed(1)} %/day`;
         rateEl.style.color = "#38bdf8";
-        rateSub.textContent = "Minimal change in voltage";
+        rateSub.textContent = `Est. rate for ${pMeta.label.split(" (")[0]}`;
       }
     }
 
@@ -2087,6 +2109,8 @@ class CocoScaleApp {
     const ptsMap = new Map();
     rawRows.forEach((r) => {
       if (r.battPct === null || r.battPct === undefined || Number.isNaN(r.battPct)) return;
+      // Filter out floating pin spikes (<2.2V or >4.45V) when battery switch was turned off on USB
+      if (r.battVolt !== null && r.battVolt !== undefined && (r.battVolt < 2.2 || r.battVolt > 4.45)) return;
       const ms = r.ts.getTime();
       if (ms >= cutoffMs) {
         ptsMap.set(ms, { x: ms, yPct: r.battPct, yVolt: r.battVolt || null });
@@ -2094,8 +2118,9 @@ class CocoScaleApp {
     });
 
     if (cloud && cloud.battPct !== null && cloud.lastSeenDate) {
+      const vOk = cloud.battVolt === null || cloud.battVolt === undefined || (cloud.battVolt >= 2.2 && cloud.battVolt <= 4.45);
       const liveMs = cloud.lastSeenDate.getTime();
-      if (liveMs >= cutoffMs) {
+      if (vOk && liveMs >= cutoffMs) {
         ptsMap.set(liveMs, { x: liveMs, yPct: cloud.battPct, yVolt: cloud.battVolt || null });
       }
     }
