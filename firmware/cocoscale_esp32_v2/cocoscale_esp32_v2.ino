@@ -89,7 +89,7 @@ HX711 scale;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // --- Shared State (Synchronized between Core 0 Cloud Task & Core 1 UI Loop) ---
-volatile int  cfgIntervalMin       = 15;
+volatile int  cfgIntervalMin       = 10;
 String        cfgPowerMode         = "smart_saver"; // "always_on" | "smart_saver" (<1s Wake) | "deep_sleep" (Ultra Deep Sleep)
 String        cfgLcdMode           = "off";         // "on" | "text_only" | "flash" | "off"
 volatile long lastAckTareId        = 0;
@@ -173,14 +173,14 @@ String buildAppliedTag() {
 // ============================================================================
 void loadSavedPreferences() {
   prefs.begin("cocoscale", true);
-  cfgIntervalMin = prefs.getInt("intervalMin", 15);
+  cfgIntervalMin = prefs.getInt("intervalMin", 10);
   cfgPowerMode   = prefs.getString("powerMode", "smart_saver");
   cfgLcdMode     = prefs.getString("lcdMode", "off");
   lastAckTareId  = prefs.getLong("ackTareId", 0);
   cfgCalFactor   = prefs.getFloat("calFactor", DEFAULT_CALIBRATION_FACTOR);
   prefs.end();
 
-  if (cfgIntervalMin < 1 || cfgIntervalMin > 240) cfgIntervalMin = 15;
+  if (cfgIntervalMin < 1 || cfgIntervalMin > 240) cfgIntervalMin = 10;
   if (cfgPowerMode != "always_on" && cfgPowerMode != "smart_saver" && cfgPowerMode != "deep_sleep") {
     cfgPowerMode = "smart_saver";
   }
