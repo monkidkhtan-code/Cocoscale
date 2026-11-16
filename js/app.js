@@ -2030,13 +2030,17 @@ class CocoScaleApp {
     });
 
     const curPctRatio = (pwr.hasData && pwr.pct !== null && pwr.pct > 0) ? (pwr.pct / 100) : 1.0;
-    const remDays = Math.max(0.1, est.days * curPctRatio);
+    const hasMeasuredDischarge = (!pwr.isCharging && pwr.slopePerDay !== undefined && pwr.slopePerDay < -5.0);
+    const fullDays = hasMeasuredDischarge
+      ? (100 / Math.abs(pwr.slopePerDay))
+      : est.days;
+    const remDays = Math.max(0.05, fullDays * curPctRatio);
     const remRuntimeStr = remDays < 1.0
       ? `~${Math.max(1, Math.round(remDays * 24))} hrs`
       : `~${remDays.toFixed(1)} days`;
-    const fullRuntimeStr = est.days < 1.0
-      ? `~${Math.max(1, Math.round(est.days * 24))} hrs`
-      : `~${est.days.toFixed(1)} days`;
+    const fullRuntimeStr = fullDays < 1.0
+      ? `~${Math.max(1, Math.round(fullDays * 24))} hrs`
+      : `~${fullDays.toFixed(1)} days`;
 
     if (modeSub) {
       const modeName = pMeta.label.split(" (")[0];
