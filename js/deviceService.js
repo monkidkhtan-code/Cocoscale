@@ -329,13 +329,18 @@ class DeviceService {
         const pctDelta = last.battPct - first.battPct;
         const vDelta = (last.battVolt && first.battVolt) ? (last.battVolt - first.battVolt) : 0;
 
-        if (hours >= 0.1) {
+        if (pctDelta > 0 && hours >= 0.15) {
+          // Charging trend can be detected within ~10-15 mins
           hasSlope = true;
           slopePerDay = (pctDelta / hours) * 24;
-          // Genuine charging slope: at least +1.5% per day and +35mV rise above noise
           if (slopePerDay >= 1.5 && vDelta >= 0.035) {
             isRising = true;
           }
+        } else if (pctDelta < 0 && hours >= 2.0) {
+          // Require at least 2 hours of discharge before extrapolating a 24h daily slope
+          // (avoids multiplying the first 20-30 mins of post-charger surface-charge relaxation by 50x-70x!)
+          hasSlope = true;
+          slopePerDay = (pctDelta / hours) * 24;
         }
       }
     }

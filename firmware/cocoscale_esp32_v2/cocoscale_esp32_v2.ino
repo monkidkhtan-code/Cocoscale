@@ -739,7 +739,10 @@ void syncFirebaseDeviceNode(bool forceWriteAck) {
   }
 
   if (forceWriteAck) {
-    readBatteryVoltageAndPct();
+    // Use pre-WiFi resting voltage on initial boot/wake (<25s) to avoid Wi-Fi TX load sag
+    if (millis() > 25000UL || currentBattVolt < 0.1f) {
+      readBatteryVoltageAndPct();
+    }
     String patchJson = String("{\"plotKey\":\"") + PLOT_ID + "\"";
     if (nodeMissingInCloud) {
       patchJson += ",\"intervalMin\":" + String(cfgIntervalMin)
@@ -779,7 +782,10 @@ bool uploadWeightToGoogleSheet(float weightKg) {
   fbHttp.end();
   fbClient.stop();
 
-  readBatteryVoltageAndPct();
+  // Use pre-WiFi resting voltage on initial boot/wake (<25s) to avoid Wi-Fi TX load sag
+  if (millis() > 25000UL || currentBattVolt < 0.1f) {
+    readBatteryVoltageAndPct();
+  }
   String url = String(scriptUrl) + "?plot=" + PLOT_ID
              + "&fw=" + FW_VERSION
              + "&rssi=" + String(WiFi.RSSI())
