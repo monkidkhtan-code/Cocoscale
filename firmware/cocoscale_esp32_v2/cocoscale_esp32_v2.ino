@@ -40,7 +40,7 @@
 // --- Station Identity (Change to "Plot2" / "Plot3" for Scales #2 & #3) ---
 const char* PLOT_ID    = "Plot1";
 const char* MDNS_HOST  = "cocoscale-plot1"; // Reachable at http://cocoscale-plot1.local/cmd
-const char* FW_VERSION = "2.7";
+const char* FW_VERSION = "2.8";
 
 // --- Fast Realtime Command Bridge (Firebase RTDB Singapore — ~80ms latency) ---
 const char* firebaseBaseUrl = "https://kh-agrifarm-default-rtdb.asia-southeast1.firebasedatabase.app/cocoscale_devices";
@@ -1007,7 +1007,7 @@ void setup() {
     lcdDisplayActive = true;
     lcdBacklightActive = true;
     lcd.setCursor(0, 0);
-    lcd.print("KH CocoScale 2.7");
+    lcd.print("KH CocoScale 2.8");
     lcd.setCursor(0, 1);
     lcd.print("Connecting WiFi ");
   }
