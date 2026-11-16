@@ -442,13 +442,16 @@ void enterUltraHardwareDeepSleep() {
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
   esp_wifi_stop();
+  btStop();
+  esp_bt_controller_disable();
 
-  // Wake on Timer OR Instant Physical BOOT Button Press (GPIO 0 -> LOW)
-  // Enforce RTC pull-up so floating pin 0 never triggers an instant false wake loop
-  rtc_gpio_pullup_en(GPIO_NUM_0);
-  rtc_gpio_pulldown_dis(GPIO_NUM_0);
+  // Wake ONLY on RTC Timer!
+  // NOTE: Do NOT enable EXT0 wakeup on GPIO 0 on DOIT ESP32 DevKit V1!
+  // On DevKit V1 boards, GPIO 0 is tied to the unpowered CP2102 + S8050 auto-flash transistor circuit;
+  // when USB is unplugged (running on battery), GPIO 0 glitches LOW and causes an instant false wakeup!
+  // (To wake the scale manually in the field at any time, simply press the physical EN / Reset button.)
+  esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
   esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000ULL);
-  esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, 0);
 
   Serial.flush();
   esp_deep_sleep_start();
@@ -924,7 +927,7 @@ void pollButtonAndSerial() {
   }
 
   // If user selected Ultra Deep Sleep ("deep_sleep") and no temporary button wake is active
-  if (pendingUltraSleepNow && !cloudTaskBusy && millis() >= tempLightUntilMs) {
+  if ((cfgPowerMode == "deep_sleep" || pendingUltraSleepNow) && !cloudTaskBusy && millis() >= tempLightUntilMs) {
     pendingUltraSleepNow = false;
     syncFirebaseDeviceNode(true);
     enterUltraHardwareDeepSleep();
@@ -962,6 +965,7 @@ void setup() {
   gpio_hold_dis((gpio_num_t)LOADCELL_SCK_PIN);
   gpio_hold_dis((gpio_num_t)ONBOARD_BLUE_LED);
   btStop();
+  esp_bt_controller_disable();
   pinMode(ONBOARD_BLUE_LED, OUTPUT);
   digitalWrite(ONBOARD_BLUE_LED, LOW);
   pinMode(WAKE_TARE_BTN_PIN, INPUT_PULLUP);
@@ -985,12 +989,7 @@ void setup() {
 
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
 
-  if (wakeCause == ESP_SLEEP_WAKEUP_EXT0) {
-    // Woken by physical BOOT button press! Keep LCD lit & Wi-Fi listening for 60s
-    Serial.println("[BOOT WAKE] Physical BOOT button pressed -> Waking LCD & Wi-Fi for 60s");
-    tempLightUntilMs = millis() + 60000UL;
-    activePollUntilMs = millis() + 60000UL;
-  } else if (cfgLcdMode == "flash" && !silentTimerWake) {
+  if (cfgLcdMode == "flash" && cfgPowerMode != "deep_sleep") {
     tempLightUntilMs = millis() + SYNC_FLASH_MS;
   }
 
@@ -1040,7 +1039,7 @@ void setup() {
   float initialWeight = readStabilizedWeightKg(11);
   Serial.printf("[BOOT] Stabilized Weight: %.3f kg\n", initialWeight);
 
-  if (cfgPowerMode != "always_on" && millis() >= tempLightUntilMs) {
+  if (cfgPowerMode != "always_on") {
     scale.power_down();
     hx711PoweredUp = false;
   }
@@ -1054,8 +1053,12 @@ void setup() {
   uploadWeightToGoogleSheet(initialWeight);
   lastLogTime = millis();
 
-  // If in Ultra Deep Sleep ("deep_sleep") and not woken by physical button, go straight back to hardware sleep!
-  if (cfgPowerMode == "deep_sleep" && millis() >= tempLightUntilMs) {
+  // If in Ultra Deep Sleep ("deep_sleep"), ALWAYS enter hardware deep sleep here (never fall into loop!)
+  if (cfgPowerMode == "deep_sleep") {
+    if (!silentTimerWake) {
+      // On manual power-on or EN button reset, display weight on LCD for 3.5s before sleeping
+      delay(3500);
+    }
     enterUltraHardwareDeepSleep();
     return;
   }
