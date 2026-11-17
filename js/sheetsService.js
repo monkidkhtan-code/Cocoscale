@@ -669,6 +669,10 @@ class SheetsService {
                 const yModeRaw = String(row[10] || "").trim().toLowerCase();
                 const yMinRaw = parseFloat(row[11]);
                 const yMaxRaw = parseFloat(row[12]);
+                const luxRaw = row[13];
+                const tempRaw = row[14];
+                const cModeRaw = String(row[15] || "").trim().toLowerCase();
+                const cHoursRaw = parseInt(row[16], 10);
                 const calObj = {
                   fieldCapacityKg: fc,
                   dryWeightKg: dry,
@@ -683,6 +687,18 @@ class SheetsService {
                 if (yModeRaw === "fixed" || yModeRaw === "adaptive") calObj.chartYMode = yModeRaw;
                 if (!isNaN(yMinRaw)) calObj.chartYMinKg = yMinRaw;
                 if (!isNaN(yMaxRaw)) calObj.chartYMaxKg = yMaxRaw;
+                if (luxRaw !== undefined && luxRaw !== "") {
+                  calObj.chartShowLux = String(luxRaw).trim().toLowerCase() !== "false";
+                }
+                if (tempRaw !== undefined && tempRaw !== "") {
+                  calObj.chartShowTemp = String(tempRaw).trim().toLowerCase() !== "false";
+                }
+                if (cModeRaw === "weight" || cModeRaw === "moisture" || cModeRaw === "compare") {
+                  calObj.chartMode = cModeRaw;
+                }
+                if (!isNaN(cHoursRaw)) {
+                  calObj.chartHours = cHoursRaw;
+                }
                 return {
                   ok: true,
                   source: "sheet_tab",
@@ -718,6 +734,10 @@ class SheetsService {
         chartYMode: String(cal.chartYMode || "adaptive"),
         chartYMinKg: String(cal.chartYMinKg !== undefined ? cal.chartYMinKg : 2.0),
         chartYMaxKg: String(cal.chartYMaxKg !== undefined ? cal.chartYMaxKg : 9.0),
+        chartShowLux: String(cal.chartShowLux !== undefined ? cal.chartShowLux : true),
+        chartShowTemp: String(cal.chartShowTemp !== undefined ? cal.chartShowTemp : true),
+        chartMode: String(cal.chartMode || "weight"),
+        chartHours: String(cal.chartHours !== undefined ? cal.chartHours : 24),
         _cb: String(Date.now())
       });
       fetch(`${scriptUrl}?${qs.toString()}`, {

@@ -11,13 +11,13 @@ class CocoScaleApp {
     this.deviceCloudMap = {}; // { [plotKey]: { intervalMin, powerMode, lcdMode, lastSeenAt, ... } }
     this.deviceTabExists = false;
     this.hwDraft = null;
-    this.chartMode = "weight"; // 'weight' | 'moisture' | 'compare'
-    this.chartHours = 24; // Default 24H on landing
+    this.chartMode = this.config.chartPrefs?.mode || "weight"; // 'weight' | 'moisture' | 'compare'
+    this.chartHours = Number.isFinite(Number(this.config.chartPrefs?.hours)) ? Number(this.config.chartPrefs.hours) : 24;
     this.chartYMode = this.config.chartYScale?.mode || "adaptive"; // 'adaptive' | 'fixed'
     this.chartYMinKg = Number.isFinite(Number(this.config.chartYScale?.minKg)) ? Number(this.config.chartYScale.minKg) : 2.0;
     this.chartYMaxKg = Number.isFinite(Number(this.config.chartYScale?.maxKg)) ? Number(this.config.chartYScale.maxKg) : 9.0;
-    this.showLuxOverlay = true;
-    this.showTempOverlay = true;
+    this.showLuxOverlay = this.config.chartPrefs?.showLux !== undefined ? Boolean(this.config.chartPrefs.showLux) : true;
+    this.showTempOverlay = this.config.chartPrefs?.showTemp !== undefined ? Boolean(this.config.chartPrefs.showTemp) : true;
     this.batteryHours = 12; // Default 12H
     this.batteryChart = null;
     this.chartInstance = null;
@@ -35,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.1").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.2").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -130,12 +130,14 @@ class CocoScaleApp {
     // RainPoint Light & Temp overlay toggles
     document.getElementById("btn-overlay-lux").addEventListener("click", (e) => {
       this.showLuxOverlay = !this.showLuxOverlay;
-      e.currentTarget.classList.toggle("active", this.showLuxOverlay);
+      this.syncChartToolbarUI();
+      this.saveChartYScaleSettings();
       this.renderChart();
     });
     document.getElementById("btn-overlay-temp").addEventListener("click", (e) => {
       this.showTempOverlay = !this.showTempOverlay;
-      e.currentTarget.classList.toggle("active", this.showTempOverlay);
+      this.syncChartToolbarUI();
+      this.saveChartYScaleSettings();
       this.renderChart();
     });
 
@@ -179,7 +181,8 @@ class CocoScaleApp {
       const btn = e.target.closest(".pill-btn");
       if (!btn) return;
       this.chartMode = btn.dataset.mode;
-      document.querySelectorAll("#chart-mode-group .pill-btn").forEach((b) => b.classList.toggle("active", b === btn));
+      this.syncChartToolbarUI();
+      this.saveChartYScaleSettings();
       this.renderChart();
     });
 
@@ -188,11 +191,13 @@ class CocoScaleApp {
       const btn = e.target.closest(".pill-btn");
       if (!btn) return;
       this.chartHours = Number(btn.dataset.hours);
-      document.querySelectorAll("#chart-range-group .pill-btn").forEach((b) => b.classList.toggle("active", b === btn));
+      this.syncChartToolbarUI();
+      this.saveChartYScaleSettings();
       this.renderChart();
     });
 
     // Graph Y-Axis Weight Range Settings Panel
+    this.syncChartToolbarUI();
     this.syncChartScalePanelUI();
     const btnToggleScale = document.getElementById("btn-toggle-chart-scale");
     const scalePanel = document.getElementById("chart-scale-panel");
@@ -515,7 +520,7 @@ class CocoScaleApp {
 
     await Promise.all([...sheetTasks, rpTask, devCfgTask, ...sheetCalTasks]);
 
-    // Sync Graph Y-Axis range settings from cloud / Google Sheet BagCalibration
+    // Sync Graph settings (Y-Axis range, Light/Temp, Mode, Timeframe) from cloud / Google Sheet BagCalibration
     const activeSt = this.getSelectedStation();
     if (activeSt?.calibration) {
       const cal = activeSt.calibration;
@@ -528,12 +533,31 @@ class CocoScaleApp {
       if (Number.isFinite(Number(cal.chartYMaxKg)) && Number(cal.chartYMaxKg) > this.chartYMinKg) {
         this.chartYMaxKg = Number(cal.chartYMaxKg);
       }
+      if (cal.chartShowLux !== undefined) {
+        this.showLuxOverlay = Boolean(cal.chartShowLux);
+      }
+      if (cal.chartShowTemp !== undefined) {
+        this.showTempOverlay = Boolean(cal.chartShowTemp);
+      }
+      if (cal.chartMode === "weight" || cal.chartMode === "moisture" || cal.chartMode === "compare") {
+        this.chartMode = cal.chartMode;
+      }
+      if (cal.chartHours !== undefined && Number.isFinite(Number(cal.chartHours))) {
+        this.chartHours = Number(cal.chartHours);
+      }
       this.config.chartYScale = {
         mode: this.chartYMode,
         minKg: this.chartYMinKg,
         maxKg: this.chartYMaxKg
       };
+      this.config.chartPrefs = {
+        showLux: this.showLuxOverlay,
+        showTemp: this.showTempOverlay,
+        mode: this.chartMode,
+        hours: this.chartHours
+      };
       ConfigStore.save(this.config);
+      this.syncChartToolbarUI();
       this.syncChartScalePanelUI();
     }
 
@@ -1539,6 +1563,22 @@ class CocoScaleApp {
     });
   }
 
+  syncChartToolbarUI() {
+    const luxBtn = document.getElementById("btn-overlay-lux");
+    if (luxBtn) luxBtn.classList.toggle("active", this.showLuxOverlay);
+
+    const tempBtn = document.getElementById("btn-overlay-temp");
+    if (tempBtn) tempBtn.classList.toggle("active", this.showTempOverlay);
+
+    document.querySelectorAll("#chart-mode-group .pill-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.mode === this.chartMode);
+    });
+
+    document.querySelectorAll("#chart-range-group .pill-btn").forEach((b) => {
+      b.classList.toggle("active", Number(b.dataset.hours) === Number(this.chartHours));
+    });
+  }
+
   syncChartScalePanelUI() {
     const labelEl = document.getElementById("btn-chart-scale-label");
     if (labelEl) {
@@ -1572,13 +1612,23 @@ class CocoScaleApp {
       minKg: this.chartYMinKg,
       maxKg: this.chartYMaxKg
     };
+    this.config.chartPrefs = {
+      showLux: this.showLuxOverlay,
+      showTemp: this.showTempOverlay,
+      mode: this.chartMode,
+      hours: this.chartHours
+    };
     const st = this.getSelectedStation();
     if (st) {
       st.calibration = {
         ...st.calibration,
         chartYMode: this.chartYMode,
         chartYMinKg: this.chartYMinKg,
-        chartYMaxKg: this.chartYMaxKg
+        chartYMaxKg: this.chartYMaxKg,
+        chartShowLux: this.showLuxOverlay,
+        chartShowTemp: this.showTempOverlay,
+        chartMode: this.chartMode,
+        chartHours: this.chartHours
       };
       const plotKey = st.deviceControl?.plotKey || st.sheetSource?.tabName || "Plot1";
       const scriptUrl = st.deviceControl?.scriptUrl || this.config.defaultScriptUrl;

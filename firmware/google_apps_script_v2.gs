@@ -336,7 +336,11 @@ function getCalibrationHeaders() {
     "Updated_At",
     "Chart_Y_Mode",
     "Chart_Y_Min_Kg",
-    "Chart_Y_Max_Kg"
+    "Chart_Y_Max_Kg",
+    "Chart_Show_Lux",
+    "Chart_Show_Temp",
+    "Chart_Mode",
+    "Chart_Hours"
   ];
 }
 
@@ -355,7 +359,11 @@ function loadBagCalibration(plot) {
     updatedAt: "",
     chartYMode: "adaptive",
     chartYMinKg: 2.0,
-    chartYMaxKg: 9.0
+    chartYMaxKg: 9.0,
+    chartShowLux: true,
+    chartShowTemp: true,
+    chartMode: "weight",
+    chartHours: 24
   };
 
   if (!sheet) return base;
@@ -367,6 +375,10 @@ function loadBagCalibration(plot) {
     if (rowPlot === cleanPlot || rowPlot === cleanPlot.replace(/\s+/g, "")) {
       const row = data[i];
       const yMode = String(row[10] || "").trim().toLowerCase();
+      const luxRaw = row[13];
+      const tempRaw = row[14];
+      const cModeRaw = String(row[15] || "").trim().toLowerCase();
+      const cHoursRaw = parseInt(row[16], 10);
       return {
         fieldCapacityKg: parseFloat(row[1]) || base.fieldCapacityKg,
         dryWeightKg: parseFloat(row[2]) || base.dryWeightKg,
@@ -379,7 +391,11 @@ function loadBagCalibration(plot) {
         updatedAt: String(row[9] || ""),
         chartYMode: (yMode === "fixed" || yMode === "adaptive") ? yMode : base.chartYMode,
         chartYMinKg: !isNaN(parseFloat(row[11])) ? parseFloat(row[11]) : base.chartYMinKg,
-        chartYMaxKg: !isNaN(parseFloat(row[12])) ? parseFloat(row[12]) : base.chartYMaxKg
+        chartYMaxKg: !isNaN(parseFloat(row[12])) ? parseFloat(row[12]) : base.chartYMaxKg,
+        chartShowLux: (luxRaw === false || String(luxRaw).trim().toLowerCase() === "false") ? false : base.chartShowLux,
+        chartShowTemp: (tempRaw === false || String(tempRaw).trim().toLowerCase() === "false") ? false : base.chartShowTemp,
+        chartMode: (cModeRaw === "weight" || cModeRaw === "moisture" || cModeRaw === "compare") ? cModeRaw : base.chartMode,
+        chartHours: !isNaN(cHoursRaw) ? cHoursRaw : base.chartHours
       };
     }
   }
@@ -395,6 +411,12 @@ function saveBagCalibration(plot, params) {
     sheet = ss.insertSheet("BagCalibration");
     sheet.appendRow(headers);
     sheet.getRange(1, 1, 1, headers.length)
+      .setFontWeight("bold")
+      .setBackground("#0d9488")
+      .setFontColor("#ffffff");
+  } else if (sheet.getLastColumn() < headers.length) {
+    sheet.getRange(1, 1, 1, headers.length)
+      .setValues([headers])
       .setFontWeight("bold")
       .setBackground("#0d9488")
       .setFontColor("#ffffff");
@@ -415,6 +437,11 @@ function saveBagCalibration(plot, params) {
   const chartYMode = (yModeRaw === "fixed" || yModeRaw === "adaptive") ? yModeRaw : existing.chartYMode;
   const yMin = params.chartYMinKg !== undefined ? parseFloat(params.chartYMinKg) : existing.chartYMinKg;
   const yMax = params.chartYMaxKg !== undefined ? parseFloat(params.chartYMaxKg) : existing.chartYMaxKg;
+  const showLux = params.chartShowLux !== undefined ? (String(params.chartShowLux).trim().toLowerCase() !== "false") : existing.chartShowLux;
+  const showTemp = params.chartShowTemp !== undefined ? (String(params.chartShowTemp).trim().toLowerCase() !== "false") : existing.chartShowTemp;
+  const cModeRaw = params.chartMode !== undefined ? String(params.chartMode).trim().toLowerCase() : existing.chartMode;
+  const chartMode = (cModeRaw === "weight" || cModeRaw === "moisture" || cModeRaw === "compare") ? cModeRaw : existing.chartMode;
+  const cHours = params.chartHours !== undefined ? parseInt(params.chartHours, 10) : existing.chartHours;
 
   const rowValues = [
     plot,
@@ -429,7 +456,11 @@ function saveBagCalibration(plot, params) {
     nowStr,
     chartYMode,
     !isNaN(yMin) ? Number(yMin.toFixed(2)) : 2.0,
-    !isNaN(yMax) ? Number(yMax.toFixed(2)) : 9.0
+    !isNaN(yMax) ? Number(yMax.toFixed(2)) : 9.0,
+    showLux,
+    showTemp,
+    chartMode,
+    !isNaN(cHours) ? cHours : 24
   ];
 
   const data = sheet.getDataRange().getValues();
@@ -461,7 +492,11 @@ function saveBagCalibration(plot, params) {
     updatedAt: nowStr,
     chartYMode: rowValues[10],
     chartYMinKg: rowValues[11],
-    chartYMaxKg: rowValues[12]
+    chartYMaxKg: rowValues[12],
+    chartShowLux: rowValues[13],
+    chartShowTemp: rowValues[14],
+    chartMode: rowValues[15],
+    chartHours: rowValues[16]
   };
 }
 
