@@ -23,7 +23,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=1.8.8">
+  <link rel="stylesheet" href="css/styles.css?v=1.9.0">
 </head>
 <body>
   <div class="app-shell">
@@ -35,7 +35,7 @@
           <div class="brand-title">
             <span>KH CocoScale</span>
             <span class="brand-tag">Load-Cell Telemetry</span>
-            <span class="version-badge mono" style="font-size:0.68rem; padding:0.15rem 0.45rem;">v1.8.8</span>
+            <span class="version-badge mono" style="font-size:0.68rem; padding:0.15rem 0.45rem;">v1.9.0</span>
           </div>
           <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
         </div>
@@ -511,6 +511,60 @@
             <button type="button" class="pill-btn" data-hours="168">7D</button>
             <button type="button" class="pill-btn" data-hours="0">ALL</button>
           </div>
+
+          <button type="button" id="btn-toggle-chart-scale" class="btn btn-sm" style="padding:0.32rem 0.65rem; font-size:0.74rem; border-color:rgba(45,212,191,0.38); color:#5eead4;" title="Configure Y-axis weight range (Adaptive vs Fixed Min/Max)">
+            <i data-lucide="Sliders" style="width:13px; height:13px;"></i>
+            <span id="btn-chart-scale-label">⚙ Range: Adaptive</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Collapsible Graph Y-Axis Weight Range Settings Panel -->
+      <div id="chart-scale-panel" class="hidden" style="background:rgba(15,23,42,0.82); border:1px solid rgba(45,212,191,0.32); border-radius:10px; padding:0.85rem 1rem; margin-bottom:0.85rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+          <div>
+            <div style="font-size:0.82rem; font-weight:800; color:#5eead4; display:flex; align-items:center; gap:0.4rem;">
+              <span>📏</span> Graph Weight Y-Axis Range Settings
+            </div>
+            <div style="font-size:0.73rem; color:var(--text-secondary);">Choose between automatic data fitting or a locked Min/Max kg range for a stable graph view.</div>
+          </div>
+          <button type="button" id="btn-close-chart-scale" class="btn btn-sm" style="padding:0.2rem 0.5rem; font-size:0.75rem;">✕</button>
+        </div>
+
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+          <!-- Mode Toggle: Option 1 Adaptive vs Option 2 Fixed Min/Max -->
+          <div class="pill-group" id="chart-y-mode-group">
+            <button type="button" class="pill-btn active" data-ymode="adaptive">Option 1: Adaptive (Auto-Fit)</button>
+            <button type="button" class="pill-btn" data-ymode="fixed">Option 2: Fixed Min &amp; Max (Stable)</button>
+          </div>
+
+          <!-- Min / Max Inputs (Shown/Enabled when Fixed is active, or editable anytime) -->
+          <div id="chart-y-fixed-controls" style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:0.3rem;">
+              <label for="chart-y-min-input" style="font-size:0.73rem; color:var(--text-secondary); margin:0;">Min:</label>
+              <input type="number" id="chart-y-min-input" step="0.1" value="2.0" class="mono" style="width:74px; padding:0.28rem 0.45rem; font-size:0.8rem; font-weight:700;">
+              <span class="mono" style="font-size:0.72rem; color:var(--text-secondary);">kg</span>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:0.3rem;">
+              <label for="chart-y-max-input" style="font-size:0.73rem; color:var(--text-secondary); margin:0;">Max:</label>
+              <input type="number" id="chart-y-max-input" step="0.1" value="9.0" class="mono" style="width:74px; padding:0.28rem 0.45rem; font-size:0.8rem; font-weight:700;">
+              <span class="mono" style="font-size:0.72rem; color:var(--text-secondary);">kg</span>
+            </div>
+
+            <button type="button" id="btn-apply-chart-scale" class="btn btn-primary btn-sm" style="padding:0.3rem 0.7rem; font-size:0.74rem;">
+              Apply Range
+            </button>
+          </div>
+
+          <!-- Quick Range Presets -->
+          <div style="display:flex; align-items:center; gap:0.35rem; flex-wrap:wrap; margin-left:auto;">
+            <span style="font-size:0.7rem; color:var(--text-secondary);">Quick Presets:</span>
+            <button type="button" class="btn btn-sm" data-yrange-preset="0,10" style="padding:0.2rem 0.45rem; font-size:0.7rem;">0–10 kg</button>
+            <button type="button" class="btn btn-sm" data-yrange-preset="2,9" style="padding:0.2rem 0.45rem; font-size:0.7rem;">2–9 kg</button>
+            <button type="button" class="btn btn-sm" data-yrange-preset="3,6" style="padding:0.2rem 0.45rem; font-size:0.7rem;">3–6 kg</button>
+            <button type="button" class="btn btn-sm" data-yrange-preset="bag" style="padding:0.2rem 0.5rem; font-size:0.7rem; border-color:rgba(56,189,248,0.4); color:#38bdf8;">Match Bag (Dry–FC)</button>
+          </div>
         </div>
       </div>
 
@@ -573,7 +627,7 @@
           <div>
             <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
               <span style="font-weight:800; font-size:0.9rem; color:var(--text-primary);">KH CocoScale</span>
-              <span class="version-badge mono">App v1.8.8 · ESP32 FW v2.8</span>
+              <span class="version-badge mono">App v1.9.0 · ESP32 FW v2.8</span>
               <span class="mono" style="font-size:0.72rem; color:var(--text-secondary);">Updated: Nov 2026</span>
             </div>
             <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">
@@ -602,15 +656,15 @@
 
       <div class="footer-version-details">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.45rem;">
-          <div class="footer-version-title mono" style="margin-bottom:0;">Latest Update (v1.8.8 · Firmware v2.8)</div>
+          <div class="footer-version-title mono" style="margin-bottom:0;">Latest Update (v1.9.0 · Firmware v2.8)</div>
           <button type="button" id="btn-open-changelog" class="btn btn-sm" style="padding:0.25rem 0.65rem; font-size:0.72rem; border-color:rgba(45,212,191,0.35); color:#5eead4;">
             <i data-lucide="history" style="width:13px; height:13px;"></i>
             <span>Update History</span>
           </button>
         </div>
         <div class="changelog-item" style="max-width:100%;">
-          <span class="changelog-tag mono">v1.8.8 · FW v2.8</span>
-          <span>Fixed <b>Ultra Deep Sleep Battery Lock (FW v2.8)</b>: eliminated <span class="mono">GPIO 0</span> (<span class="mono">EXT0</span>) false wakeups on battery, latched HX711 <span class="mono">GPIO 18</span> HIGH across sleep, enforced unconditional <span class="mono">esp_deep_sleep_start()</span> after upload, and disabled Bluetooth controller silicon.</span>
+          <span class="changelog-tag mono">v1.9.0</span>
+          <span>Added <b>Graph Y-Axis Weight Range Panel</b>: switch between <b>Option 1: Adaptive (Auto-Fit)</b> and <b>Option 2: Fixed Min &amp; Max (kg)</b> with quick presets (<span class="mono">0–10 kg</span>, <span class="mono">2–9 kg</span>, <span class="mono">3–6 kg</span>, <span class="mono">Match Bag</span>) for a stable, easy-to-read telemetry graph.</span>
         </div>
       </div>
 
@@ -1185,7 +1239,12 @@ function respond(obj, callback) {
 
       <div style="display:flex; flex-direction:column; gap:0.65rem; max-height:62vh; overflow-y:auto; padding-right:0.2rem;">
         <div class="changelog-item" style="background:rgba(45,212,191,0.07); border:1px solid rgba(45,212,191,0.28); border-radius:8px; padding:0.65rem 0.8rem;">
-          <span class="changelog-tag mono">v1.8.8 · FW v2.8 (Latest)</span>
+          <span class="changelog-tag mono">v1.9.0 (Latest)</span>
+          <span>Added <b>Graph Y-Axis Weight Range Panel</b>: switch between <b>Option 1: Adaptive (Auto-Fit)</b> and <b>Option 2: Fixed Min &amp; Max (kg)</b> with quick presets (<span class="mono">0–10 kg</span>, <span class="mono">2–9 kg</span>, <span class="mono">3–6 kg</span>, <span class="mono">Match Bag</span>) for a stable, easy-to-read telemetry graph.</span>
+        </div>
+
+        <div class="changelog-item" style="background:rgba(30,41,59,0.5); border:1px solid rgba(148,163,184,0.15); border-radius:8px; padding:0.65rem 0.8rem;">
+          <span class="changelog-tag mono">v1.8.8 · FW v2.8</span>
           <span>Fixed <b>Ultra Deep Sleep Battery Lock (FW v2.8)</b>: eliminated <span class="mono">GPIO 0</span> (<span class="mono">EXT0</span>) false wakeups on battery, latched HX711 <span class="mono">GPIO 18</span> HIGH across sleep, enforced unconditional <span class="mono">esp_deep_sleep_start()</span> after upload, and disabled Bluetooth controller silicon.</span>
         </div>
 
@@ -1229,11 +1288,11 @@ function respond(obj, callback) {
   <!-- Toast Notification -->
   <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
 
-  <script src="js/config.js?v=1.8.9"></script>
-  <script src="js/moistureEngine.js?v=1.8.9"></script>
-  <script src="js/sheetsService.js?v=1.8.9"></script>
-  <script src="js/rainpointService.js?v=1.8.9"></script>
-  <script src="js/deviceService.js?v=1.8.9"></script>
-  <script src="js/app.js?v=1.8.9"></script>
+  <script src="js/config.js?v=1.9.0"></script>
+  <script src="js/moistureEngine.js?v=1.9.0"></script>
+  <script src="js/sheetsService.js?v=1.9.0"></script>
+  <script src="js/rainpointService.js?v=1.9.0"></script>
+  <script src="js/deviceService.js?v=1.9.0"></script>
+  <script src="js/app.js?v=1.9.0"></script>
 </body>
 </html>

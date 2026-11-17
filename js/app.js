@@ -13,6 +13,9 @@ class CocoScaleApp {
     this.hwDraft = null;
     this.chartMode = "weight"; // 'weight' | 'moisture' | 'compare'
     this.chartHours = 24; // Default 24H on landing
+    this.chartYMode = this.config.chartYScale?.mode || "adaptive"; // 'adaptive' | 'fixed'
+    this.chartYMinKg = Number.isFinite(Number(this.config.chartYScale?.minKg)) ? Number(this.config.chartYScale.minKg) : 2.0;
+    this.chartYMaxKg = Number.isFinite(Number(this.config.chartYScale?.maxKg)) ? Number(this.config.chartYScale.maxKg) : 9.0;
     this.showLuxOverlay = true;
     this.showTempOverlay = true;
     this.batteryHours = 12; // Default 12H
@@ -32,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.8.9").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.0").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -187,6 +190,81 @@ class CocoScaleApp {
       this.chartHours = Number(btn.dataset.hours);
       document.querySelectorAll("#chart-range-group .pill-btn").forEach((b) => b.classList.toggle("active", b === btn));
       this.renderChart();
+    });
+
+    // Graph Y-Axis Weight Range Settings Panel
+    this.syncChartScalePanelUI();
+    const btnToggleScale = document.getElementById("btn-toggle-chart-scale");
+    const scalePanel = document.getElementById("chart-scale-panel");
+    if (btnToggleScale && scalePanel) {
+      btnToggleScale.addEventListener("click", () => {
+        scalePanel.classList.toggle("hidden");
+        this.syncChartScalePanelUI();
+      });
+    }
+    const btnCloseScale = document.getElementById("btn-close-chart-scale");
+    if (btnCloseScale && scalePanel) {
+      btnCloseScale.addEventListener("click", () => {
+        scalePanel.classList.add("hidden");
+      });
+    }
+    const yModeGroup = document.getElementById("chart-y-mode-group");
+    if (yModeGroup) {
+      yModeGroup.addEventListener("click", (e) => {
+        const btn = e.target.closest(".pill-btn");
+        if (!btn) return;
+        const mode = btn.dataset.ymode;
+        if (mode === "adaptive" || mode === "fixed") {
+          this.chartYMode = mode;
+          this.saveChartYScaleSettings();
+          this.syncChartScalePanelUI();
+          this.renderChart();
+          this.showToast(mode === "adaptive" ? "Graph Y-axis set to Adaptive (Auto-Fit)" : `Graph Y-axis locked to ${this.chartYMinKg.toFixed(1)}–${this.chartYMaxKg.toFixed(1)} kg`);
+        }
+      });
+    }
+    const btnApplyScale = document.getElementById("btn-apply-chart-scale");
+    if (btnApplyScale) {
+      btnApplyScale.addEventListener("click", () => {
+        const minIn = parseFloat(document.getElementById("chart-y-min-input")?.value);
+        const maxIn = parseFloat(document.getElementById("chart-y-max-input")?.value);
+        if (isNaN(minIn) || isNaN(maxIn) || maxIn <= minIn) {
+          this.showToast("Max weight must be greater than Min weight.");
+          return;
+        }
+        this.chartYMinKg = Number(minIn.toFixed(2));
+        this.chartYMaxKg = Number(maxIn.toFixed(2));
+        this.chartYMode = "fixed";
+        this.saveChartYScaleSettings();
+        this.syncChartScalePanelUI();
+        this.renderChart();
+        this.showToast(`Locked graph weight range to ${this.chartYMinKg.toFixed(1)} – ${this.chartYMaxKg.toFixed(1)} kg`);
+      });
+    }
+    document.querySelectorAll("[data-yrange-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const preset = btn.dataset.yrangePreset;
+        if (preset === "bag") {
+          const st = this.getSelectedStation();
+          const cal = st?.calibration || {};
+          const dry = Number(cal.dryWeightKg) || 3.0;
+          const fc = Number(cal.fieldCapacityKg) || 8.5;
+          const bio = Number(cal.plantBiomassKg) || 0.0;
+          this.chartYMinKg = Math.max(0, Number((dry - 0.5).toFixed(1)));
+          this.chartYMaxKg = Number((fc + bio + 0.5).toFixed(1));
+        } else {
+          const parts = preset.split(",").map(Number);
+          if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[1] > parts[0]) {
+            this.chartYMinKg = parts[0];
+            this.chartYMaxKg = parts[1];
+          }
+        }
+        this.chartYMode = "fixed";
+        this.saveChartYScaleSettings();
+        this.syncChartScalePanelUI();
+        this.renderChart();
+        this.showToast(`Locked graph weight range to ${this.chartYMinKg.toFixed(1)} – ${this.chartYMaxKg.toFixed(1)} kg`);
+      });
     });
 
     // Modal close buttons (explicit X and Cancel buttons)
@@ -1406,6 +1484,9 @@ class CocoScaleApp {
           },
           y: {
             position: "left",
+            ...(isWeightMode && this.chartYMode === "fixed"
+              ? { min: this.chartYMinKg, max: this.chartYMaxKg }
+              : (!isWeightMode ? { min: 0, max: 110 } : {})),
             ticks: {
               color: "#5eead4",
               font: { family: "'JetBrains Mono'", size: 11 },
@@ -1434,6 +1515,42 @@ class CocoScaleApp {
         }
       }
     });
+  }
+
+  syncChartScalePanelUI() {
+    const labelEl = document.getElementById("btn-chart-scale-label");
+    if (labelEl) {
+      labelEl.textContent = this.chartYMode === "fixed"
+        ? `⚙ Range: ${this.chartYMinKg.toFixed(1)}–${this.chartYMaxKg.toFixed(1)} kg`
+        : "⚙ Range: Adaptive";
+    }
+    const yModeGroup = document.getElementById("chart-y-mode-group");
+    if (yModeGroup) {
+      yModeGroup.querySelectorAll(".pill-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.ymode === this.chartYMode);
+      });
+    }
+    const minIn = document.getElementById("chart-y-min-input");
+    const maxIn = document.getElementById("chart-y-max-input");
+    if (minIn && document.activeElement !== minIn) {
+      minIn.value = this.chartYMinKg.toFixed(1);
+    }
+    if (maxIn && document.activeElement !== maxIn) {
+      maxIn.value = this.chartYMaxKg.toFixed(1);
+    }
+    const fixedControls = document.getElementById("chart-y-fixed-controls");
+    if (fixedControls) {
+      fixedControls.style.opacity = this.chartYMode === "fixed" ? "1" : "0.78";
+    }
+  }
+
+  saveChartYScaleSettings() {
+    this.config.chartYScale = {
+      mode: this.chartYMode,
+      minKg: this.chartYMinKg,
+      maxKg: this.chartYMaxKg
+    };
+    ConfigStore.save(this.config);
   }
 
   renderDetails() {
