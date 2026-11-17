@@ -666,20 +666,27 @@ class SheetsService {
               const fc = parseFloat(row[1]);
               const dry = parseFloat(row[2]);
               if (!isNaN(fc) && !isNaN(dry) && fc > 0) {
+                const yModeRaw = String(row[10] || "").trim().toLowerCase();
+                const yMinRaw = parseFloat(row[11]);
+                const yMaxRaw = parseFloat(row[12]);
+                const calObj = {
+                  fieldCapacityKg: fc,
+                  dryWeightKg: dry,
+                  plantBiomassKg: parseFloat(row[3]) || 0.0,
+                  irrigateTriggerPct: parseFloat(row[4]) || 75,
+                  criticalFloorPct: parseFloat(row[5]) || 55,
+                  targetRunoffPct: parseFloat(row[6]) || 15,
+                  scaleMultiplier: parseFloat(row[7]) || 1.0,
+                  scaleOffset: parseFloat(row[8]) || 0.0,
+                  updatedAt: String(row[9] || "")
+                };
+                if (yModeRaw === "fixed" || yModeRaw === "adaptive") calObj.chartYMode = yModeRaw;
+                if (!isNaN(yMinRaw)) calObj.chartYMinKg = yMinRaw;
+                if (!isNaN(yMaxRaw)) calObj.chartYMaxKg = yMaxRaw;
                 return {
                   ok: true,
                   source: "sheet_tab",
-                  calibration: {
-                    fieldCapacityKg: fc,
-                    dryWeightKg: dry,
-                    plantBiomassKg: parseFloat(row[3]) || 0.0,
-                    irrigateTriggerPct: parseFloat(row[4]) || 75,
-                    criticalFloorPct: parseFloat(row[5]) || 55,
-                    targetRunoffPct: parseFloat(row[6]) || 15,
-                    scaleMultiplier: parseFloat(row[7]) || 1.0,
-                    scaleOffset: parseFloat(row[8]) || 0.0,
-                    updatedAt: String(row[9] || "")
-                  }
+                  calibration: calObj
                 };
               }
             }
@@ -708,6 +715,9 @@ class SheetsService {
         runoff: String(cal.targetRunoffPct || 15),
         mult: String(cal.scaleMultiplier || 1.0),
         offset: String(cal.scaleOffset || 0.0),
+        chartYMode: String(cal.chartYMode || "adaptive"),
+        chartYMinKg: String(cal.chartYMinKg !== undefined ? cal.chartYMinKg : 2.0),
+        chartYMaxKg: String(cal.chartYMaxKg !== undefined ? cal.chartYMaxKg : 9.0),
         _cb: String(Date.now())
       });
       fetch(`${scriptUrl}?${qs.toString()}`, {

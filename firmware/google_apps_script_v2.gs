@@ -333,7 +333,10 @@ function getCalibrationHeaders() {
     "Target_Runoff_Pct",
     "Scale_Multiplier",
     "Scale_Offset_Kg",
-    "Updated_At"
+    "Updated_At",
+    "Chart_Y_Mode",
+    "Chart_Y_Min_Kg",
+    "Chart_Y_Max_Kg"
   ];
 }
 
@@ -349,7 +352,10 @@ function loadBagCalibration(plot) {
     targetRunoffPct: 15,
     scaleMultiplier: 1.0,
     scaleOffset: 0.0,
-    updatedAt: ""
+    updatedAt: "",
+    chartYMode: "adaptive",
+    chartYMinKg: 2.0,
+    chartYMaxKg: 9.0
   };
 
   if (!sheet) return base;
@@ -360,6 +366,7 @@ function loadBagCalibration(plot) {
     const rowPlot = String(data[i][0]).trim().toLowerCase();
     if (rowPlot === cleanPlot || rowPlot === cleanPlot.replace(/\s+/g, "")) {
       const row = data[i];
+      const yMode = String(row[10] || "").trim().toLowerCase();
       return {
         fieldCapacityKg: parseFloat(row[1]) || base.fieldCapacityKg,
         dryWeightKg: parseFloat(row[2]) || base.dryWeightKg,
@@ -369,7 +376,10 @@ function loadBagCalibration(plot) {
         targetRunoffPct: parseFloat(row[6]) || base.targetRunoffPct,
         scaleMultiplier: parseFloat(row[7]) || 1.0,
         scaleOffset: parseFloat(row[8]) || 0.0,
-        updatedAt: String(row[9] || "")
+        updatedAt: String(row[9] || ""),
+        chartYMode: (yMode === "fixed" || yMode === "adaptive") ? yMode : base.chartYMode,
+        chartYMinKg: !isNaN(parseFloat(row[11])) ? parseFloat(row[11]) : base.chartYMinKg,
+        chartYMaxKg: !isNaN(parseFloat(row[12])) ? parseFloat(row[12]) : base.chartYMaxKg
       };
     }
   }
@@ -401,6 +411,10 @@ function saveBagCalibration(plot, params) {
   const runoff = params.runoff !== undefined ? parseFloat(params.runoff) : (params.targetRunoffPct !== undefined ? parseFloat(params.targetRunoffPct) : existing.targetRunoffPct);
   const mult = params.mult !== undefined ? parseFloat(params.mult) : (params.scaleMultiplier !== undefined ? parseFloat(params.scaleMultiplier) : existing.scaleMultiplier);
   const offset = params.offset !== undefined ? parseFloat(params.offset) : (params.scaleOffset !== undefined ? parseFloat(params.scaleOffset) : existing.scaleOffset);
+  const yModeRaw = params.chartYMode !== undefined ? String(params.chartYMode).trim().toLowerCase() : existing.chartYMode;
+  const chartYMode = (yModeRaw === "fixed" || yModeRaw === "adaptive") ? yModeRaw : existing.chartYMode;
+  const yMin = params.chartYMinKg !== undefined ? parseFloat(params.chartYMinKg) : existing.chartYMinKg;
+  const yMax = params.chartYMaxKg !== undefined ? parseFloat(params.chartYMaxKg) : existing.chartYMaxKg;
 
   const rowValues = [
     plot,
@@ -412,7 +426,10 @@ function saveBagCalibration(plot, params) {
     !isNaN(runoff) ? Number(runoff.toFixed(1)) : 15.0,
     !isNaN(mult) && mult > 0 ? Number(mult.toFixed(4)) : 1.0000,
     !isNaN(offset) ? Number(offset.toFixed(3)) : 0.000,
-    nowStr
+    nowStr,
+    chartYMode,
+    !isNaN(yMin) ? Number(yMin.toFixed(2)) : 2.0,
+    !isNaN(yMax) ? Number(yMax.toFixed(2)) : 9.0
   ];
 
   const data = sheet.getDataRange().getValues();
@@ -441,7 +458,10 @@ function saveBagCalibration(plot, params) {
     targetRunoffPct: rowValues[6],
     scaleMultiplier: rowValues[7],
     scaleOffset: rowValues[8],
-    updatedAt: nowStr
+    updatedAt: nowStr,
+    chartYMode: rowValues[10],
+    chartYMinKg: rowValues[11],
+    chartYMaxKg: rowValues[12]
   };
 }
 

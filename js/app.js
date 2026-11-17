@@ -35,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.0").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.1").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -514,6 +514,28 @@ class CocoScaleApp {
     });
 
     await Promise.all([...sheetTasks, rpTask, devCfgTask, ...sheetCalTasks]);
+
+    // Sync Graph Y-Axis range settings from cloud / Google Sheet BagCalibration
+    const activeSt = this.getSelectedStation();
+    if (activeSt?.calibration) {
+      const cal = activeSt.calibration;
+      if (cal.chartYMode === "fixed" || cal.chartYMode === "adaptive") {
+        this.chartYMode = cal.chartYMode;
+      }
+      if (Number.isFinite(Number(cal.chartYMinKg))) {
+        this.chartYMinKg = Number(cal.chartYMinKg);
+      }
+      if (Number.isFinite(Number(cal.chartYMaxKg)) && Number(cal.chartYMaxKg) > this.chartYMinKg) {
+        this.chartYMaxKg = Number(cal.chartYMaxKg);
+      }
+      this.config.chartYScale = {
+        mode: this.chartYMode,
+        minKg: this.chartYMinKg,
+        maxKg: this.chartYMaxKg
+      };
+      ConfigStore.save(this.config);
+      this.syncChartScalePanelUI();
+    }
 
     this.recomputeAllStations();
     this.renderAll();
@@ -1550,6 +1572,27 @@ class CocoScaleApp {
       minKg: this.chartYMinKg,
       maxKg: this.chartYMaxKg
     };
+    const st = this.getSelectedStation();
+    if (st) {
+      st.calibration = {
+        ...st.calibration,
+        chartYMode: this.chartYMode,
+        chartYMinKg: this.chartYMinKg,
+        chartYMaxKg: this.chartYMaxKg
+      };
+      const plotKey = st.deviceControl?.plotKey || st.sheetSource?.tabName || "Plot1";
+      const scriptUrl = st.deviceControl?.scriptUrl || this.config.defaultScriptUrl;
+
+      // 1. Sync directly to Google Sheet 'BagCalibration' tab
+      SheetsService.pushSheetBagCalibration(scriptUrl, plotKey, st.calibration);
+
+      // 2. Mirror to Firebase Realtime DB for instant cross-platform sync (<80ms)
+      fetch(`${DeviceService.FIREBASE_BASE_URL}/${encodeURIComponent(plotKey)}.json`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cloudCalibration: st.calibration })
+      }).catch(() => {});
+    }
     ConfigStore.save(this.config);
   }
 
