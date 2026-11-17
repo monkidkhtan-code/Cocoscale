@@ -35,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.2").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.3").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -111,6 +111,23 @@ class CocoScaleApp {
       this.hwDraft.intervalMin = Math.max(1, Math.min(240, Number(e.target.value) || 1));
       this.renderHardwareModalSelections();
     });
+    const nightToggleEl = document.getElementById("hw-night-eco-toggle");
+    const nightSelectEl = document.getElementById("hw-night-interval-select");
+    if (nightToggleEl) {
+      nightToggleEl.addEventListener("change", () => {
+        if (!this.hwDraft) return;
+        this.hwDraft.nightEco = nightToggleEl.checked;
+        if (nightSelectEl) nightSelectEl.disabled = !this.hwDraft.nightEco;
+        this.submitHardwareForm(false);
+      });
+    }
+    if (nightSelectEl) {
+      nightSelectEl.addEventListener("change", () => {
+        if (!this.hwDraft) return;
+        this.hwDraft.nightIntMin = Number(nightSelectEl.value) || 20;
+        this.submitHardwareForm(false);
+      });
+    }
     document.getElementById("hw-battery-mah").addEventListener("input", (e) => {
       if (!this.hwDraft) return;
       this.hwDraft.batteryMah = Math.max(300, Number(e.target.value) || 3000);
@@ -2491,6 +2508,8 @@ class CocoScaleApp {
 
     this.hwDraft = {
       intervalMin: cloud?.intervalMin || dc.intervalMin || 1,
+      nightEco: cloud?.nightEco !== undefined ? Boolean(cloud.nightEco) : (dc.nightEco !== undefined ? Boolean(dc.nightEco) : true),
+      nightIntMin: cloud?.nightIntMin || dc.nightIntMin || 20,
       lcdMode: cloud?.lcdMode || dc.lcdMode || "on",
       powerMode: cloud?.powerMode || dc.powerMode || "always_on",
       batteryMah: dc.batteryMah || 3000,
@@ -2500,6 +2519,13 @@ class CocoScaleApp {
 
     document.getElementById("hw-modal-title").textContent = `ESP32 Hardware & LCD — ${st.shortName}`;
     document.getElementById("hw-interval-input").value = String(this.hwDraft.intervalMin);
+    const nightToggle = document.getElementById("hw-night-eco-toggle");
+    const nightSelect = document.getElementById("hw-night-interval-select");
+    if (nightToggle) nightToggle.checked = this.hwDraft.nightEco;
+    if (nightSelect) {
+      nightSelect.value = String(this.hwDraft.nightIntMin);
+      nightSelect.disabled = !this.hwDraft.nightEco;
+    }
     document.getElementById("hw-battery-mah").value = String(this.hwDraft.batteryMah);
     document.getElementById("hw-plot-key").value = this.hwDraft.plotKey;
     document.getElementById("hw-script-url").value = this.hwDraft.scriptUrl;
@@ -2728,12 +2754,16 @@ class CocoScaleApp {
     const applyBtn = document.getElementById("btn-hw-apply");
 
     const intervalMin = Math.max(1, Math.min(240, Number(document.getElementById("hw-interval-input").value) || 1));
+    const nightEco = Boolean(document.getElementById("hw-night-eco-toggle")?.checked ?? true);
+    const nightIntMin = Math.max(5, Math.min(240, Number(document.getElementById("hw-night-interval-select")?.value) || 20));
     const batteryMah = Math.max(300, Number(document.getElementById("hw-battery-mah").value) || 3000);
     const plotKey = document.getElementById("hw-plot-key").value.trim() || "Plot1";
     const scriptUrl = document.getElementById("hw-script-url").value.trim();
     const prevCloud = this.deviceCloudMap[plotKey];
 
     this.hwDraft.intervalMin = intervalMin;
+    this.hwDraft.nightEco = nightEco;
+    this.hwDraft.nightIntMin = nightIntMin;
     this.hwDraft.batteryMah = batteryMah;
     this.hwDraft.plotKey = plotKey;
     this.hwDraft.scriptUrl = scriptUrl;
@@ -2742,6 +2772,8 @@ class CocoScaleApp {
       plotKey,
       scriptUrl,
       intervalMin,
+      nightEco,
+      nightIntMin,
       powerMode: this.hwDraft.powerMode,
       lcdMode: this.hwDraft.lcdMode,
       batteryMah
@@ -2755,6 +2787,8 @@ class CocoScaleApp {
     const res = await DeviceService.pushConfig(scriptUrl, {
       plotKey,
       intervalMin,
+      nightEco,
+      nightIntMin,
       powerMode: this.hwDraft.powerMode,
       lcdMode: this.hwDraft.lcdMode,
       tareCmd,

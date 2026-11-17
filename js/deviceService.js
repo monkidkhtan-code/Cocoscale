@@ -140,6 +140,10 @@ class DeviceService {
       ssid: node.ssid || node.wifiSsid || "",
       fw: node.fw || "",
       calFactor: node.calFactor !== undefined ? Number(node.calFactor) : null,
+      nightEco: node.nightEco !== undefined ? (Number(node.nightEco) === 1 || node.nightEco === true) : true,
+      nightIntMin: parseInt(node.nightIntMin, 10) || 20,
+      activeIntervalMin: parseInt(node.activeIntervalMin, 10) || intervalMin,
+      nightEcoActive: Boolean(node.nightEcoActive),
       cloudCalibration: node.cloudCalibration && typeof node.cloudCalibration === "object" ? node.cloudCalibration : null,
       lastWeightKg: node.lastWeightKg !== undefined ? Number(node.lastWeightKg) : null,
       appliedState,
@@ -516,7 +520,7 @@ class DeviceService {
    *  2) Firebase RTDB PATCH (<100ms — ESP32 Core 0 picks up within ~0.6-1.2s!)
    *  3) Non-blocking background sync to Google Apps Script 'DeviceConfig' tab
    */
-  static async pushConfig(scriptUrl, { plotKey = "Plot1", intervalMin = 1, powerMode = "always_on", lcdMode = "on", tareCmd = false, calFactor = null, localIp = "" }) {
+  static async pushConfig(scriptUrl, { plotKey = "Plot1", intervalMin = 1, powerMode = "always_on", lcdMode = "on", tareCmd = false, calFactor = null, nightEco = null, nightIntMin = null, localIp = "" }) {
     const cleanMin = Math.max(1, Math.min(240, Number(intervalMin) || 1));
     const tareId = tareCmd ? Math.floor(Date.now() / 1000) : undefined;
     const nowStr = this.formatGmt8Now();
@@ -528,6 +532,12 @@ class DeviceService {
       lcdMode,
       updatedAt: nowStr
     };
+    if (nightEco !== null && nightEco !== undefined) {
+      fbPayload.nightEco = nightEco ? 1 : 0;
+    }
+    if (nightIntMin !== null && !isNaN(nightIntMin) && Number(nightIntMin) >= 5) {
+      fbPayload.nightIntMin = Math.max(5, Math.min(240, Number(nightIntMin)));
+    }
     if (tareId) {
       fbPayload.tareId = tareId;
     }

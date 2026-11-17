@@ -36,11 +36,12 @@
 #include "esp_bt.h"
 #include "driver/rtc_io.h"
 #include "driver/gpio.h"
+#include <time.h>
 
 // --- Station Identity (Change to "Plot2" / "Plot3" for Scales #2 & #3) ---
 const char* PLOT_ID    = "Plot1";
 const char* MDNS_HOST  = "cocoscale-plot1"; // Reachable at http://cocoscale-plot1.local/cmd
-const char* FW_VERSION = "2.8";
+const char* FW_VERSION = "2.9";
 
 // --- Fast Realtime Command Bridge (Firebase RTDB Singapore — ~80ms latency) ---
 const char* firebaseBaseUrl = "https://kh-agrifarm-default-rtdb.asia-southeast1.firebasedatabase.app/cocoscale_devices";
@@ -90,6 +91,8 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // --- Shared State (Synchronized between Core 0 Cloud Task & Core 1 UI Loop) ---
 volatile int  cfgIntervalMin       = 10;
+volatile bool cfgNightEcoEnabled   = true;          // Night Eco Mode (19:00 - 06:00 GMT+8)
+volatile int  cfgNightIntervalMin  = 20;            // Sleep interval (min) during Night Eco window
 String        cfgPowerMode         = "smart_saver"; // "always_on" | "smart_saver" (<1s Wake) | "deep_sleep" (Ultra Deep Sleep)
 String        cfgLcdMode           = "off";         // "on" | "text_only" | "flash" | "off"
 volatile long lastAckTareId        = 0;
@@ -173,14 +176,17 @@ String buildAppliedTag() {
 // ============================================================================
 void loadSavedPreferences() {
   prefs.begin("cocoscale", true);
-  cfgIntervalMin = prefs.getInt("intervalMin", 10);
-  cfgPowerMode   = prefs.getString("powerMode", "smart_saver");
-  cfgLcdMode     = prefs.getString("lcdMode", "off");
-  lastAckTareId  = prefs.getLong("ackTareId", 0);
-  cfgCalFactor   = prefs.getFloat("calFactor", DEFAULT_CALIBRATION_FACTOR);
+  cfgIntervalMin      = prefs.getInt("intervalMin", 10);
+  cfgNightEcoEnabled  = prefs.getBool("nightEco", true);
+  cfgNightIntervalMin = prefs.getInt("nightIntMin", 20);
+  cfgPowerMode        = prefs.getString("powerMode", "smart_saver");
+  cfgLcdMode          = prefs.getString("lcdMode", "off");
+  lastAckTareId       = prefs.getLong("ackTareId", 0);
+  cfgCalFactor        = prefs.getFloat("calFactor", DEFAULT_CALIBRATION_FACTOR);
   prefs.end();
 
   if (cfgIntervalMin < 1 || cfgIntervalMin > 240) cfgIntervalMin = 10;
+  if (cfgNightIntervalMin < 5 || cfgNightIntervalMin > 240) cfgNightIntervalMin = 20;
   if (cfgPowerMode != "always_on" && cfgPowerMode != "smart_saver" && cfgPowerMode != "deep_sleep") {
     cfgPowerMode = "smart_saver";
   }
@@ -192,11 +198,42 @@ void loadSavedPreferences() {
 void saveConfigPreferences() {
   prefs.begin("cocoscale", false);
   prefs.putInt("intervalMin", cfgIntervalMin);
+  prefs.putBool("nightEco", cfgNightEcoEnabled);
+  prefs.putInt("nightIntMin", cfgNightIntervalMin);
   prefs.putString("powerMode", cfgPowerMode);
   prefs.putString("lcdMode", cfgLcdMode);
   prefs.putLong("ackTareId", lastAckTareId);
   prefs.putFloat("calFactor", cfgCalFactor);
   prefs.end();
+}
+
+bool isNightEcoWindowActive() {
+  if (!cfgNightEcoEnabled) return false;
+  time_t nowSec = time(nullptr);
+  if (nowSec < 1700000000UL) return false; // Clock not synced yet
+  struct tm tmInfo;
+  localtime_r(&nowSec, &tmInfo);
+  int hr = tmInfo.tm_hour; // GMT+8 (0..23)
+  return (hr >= 19 || hr < 6); // 7:00 PM to 5:59 AM
+}
+
+int getEffectiveIntervalMin() {
+  if (isNightEcoWindowActive()) {
+    return max((int)cfgIntervalMin, (int)cfgNightIntervalMin);
+  }
+  return (int)cfgIntervalMin;
+}
+
+void syncNtpClockIfNeeded() {
+  setenv("TZ", "CST-8", 1);
+  tzset();
+  if (time(nullptr) >= 1700000000UL) return; // RTC already holds valid time across deep sleep
+  if (WiFi.status() != WL_CONNECTED) return;
+  configTime(8 * 3600, 0, "pool.ntp.org", "time.google.com");
+  unsigned long t0 = millis();
+  while (time(nullptr) < 1700000000UL && (millis() - t0 < 1500UL)) {
+    delay(40);
+  }
 }
 
 void ensureHx711Awake() {
@@ -423,8 +460,10 @@ float readStabilizedWeightKg(int samples) {
 // True Hardware Deep Sleep Entry (For "deep_sleep" Ultra Deep Sleep Mode)
 // ============================================================================
 void enterUltraHardwareDeepSleep() {
-  uint64_t sleepSeconds = (uint64_t)max(1, (int)cfgIntervalMin) * 60ULL;
-  Serial.printf("[ULTRA DEEP SLEEP] Powering down HX711, LCD, Wi-Fi & CPU for %llu sec...\n", sleepSeconds);
+  int effMin = max(1, getEffectiveIntervalMin());
+  uint64_t sleepSeconds = (uint64_t)effMin * 60ULL;
+  Serial.printf("[ULTRA DEEP SLEEP] Powering down HX711, LCD, Wi-Fi & CPU for %llu sec (%d min, nightEco=%s)...\n",
+                sleepSeconds, effMin, isNightEcoWindowActive() ? "ON" : "OFF");
 
   lcd.noBacklight();
   lcd.noDisplay();
@@ -559,12 +598,13 @@ void renderLcdScreen(float weightKg) {
   } else if (WiFi.status() != WL_CONNECTED) {
     snprintf(line2, sizeof(line2), "WiFi:Offline %2dm", cfgIntervalMin);
   } else {
-    unsigned long intervalMs = (unsigned long)cfgIntervalMin * 60000UL;
+    int effMin = max(1, getEffectiveIntervalMin());
+    unsigned long intervalMs = (unsigned long)effMin * 60000UL;
     unsigned long elapsed = millis() - lastLogTime;
     unsigned long remSec = (elapsed < intervalMs) ? ((intervalMs - elapsed) / 1000UL) : 0UL;
     unsigned int mm = remSec / 60UL;
     unsigned int ss = remSec % 60UL;
-    snprintf(line2, sizeof(line2), "Next:%02um%02us %3dm", mm, ss, cfgIntervalMin);
+    snprintf(line2, sizeof(line2), "Next:%02um%02us %3dm", mm, ss, effMin);
   }
   lcd.setCursor(0, 1);
   lcd.print(line2);
@@ -573,8 +613,23 @@ void renderLcdScreen(float weightKg) {
 // ============================================================================
 // Apply New Config (Called from Local HTTP or Core 0 Firebase Poll)
 // ============================================================================
-bool parseAndStageConfig(int newInterval, const String& newPower, const String& newLcd, long remoteTareId, float newCalFactor = 0.0f) {
+bool parseAndStageConfig(int newInterval, const String& newPower, const String& newLcd, long remoteTareId, float newCalFactor = 0.0f, int newNightEco = -1, int newNightIntMin = 0) {
   bool changed = false;
+
+  if (newNightEco == 0 || newNightEco == 1) {
+    bool en = (newNightEco == 1);
+    if (en != cfgNightEcoEnabled) {
+      cfgNightEcoEnabled = en;
+      Serial.printf("[INSTANT CMD] Night Eco Mode -> %s\n", en ? "ON" : "OFF");
+      changed = true;
+    }
+  }
+
+  if (newNightIntMin >= 5 && newNightIntMin <= 240 && newNightIntMin != cfgNightIntervalMin) {
+    Serial.printf("[INSTANT CMD] Night Eco Interval: %d min -> %d min\n", cfgNightIntervalMin, newNightIntMin);
+    cfgNightIntervalMin = newNightIntMin;
+    changed = true;
+  }
 
   if (newCalFactor >= 10.0f && newCalFactor <= 10000000.0f && fabs(newCalFactor - cfgCalFactor) > 0.5f) {
     Serial.printf("[INSTANT CMD] CalFactor: %.1f -> %.1f\n", cfgCalFactor, newCalFactor);
@@ -722,9 +777,11 @@ void syncFirebaseDeviceNode(bool forceWriteAck) {
         String newLcd = extractJsonString(body, "lcdMode", cfgLcdMode);
         long rTareId  = extractJsonLong(body, "tareId", 0);
         float newCal  = extractJsonFloat(body, "calFactor", 0.0f);
+        int newNightEco = (int)extractJsonLong(body, "nightEco", -1);
+        int newNightInt = (int)extractJsonLong(body, "nightIntMin", 0);
         String remoteApplied = extractJsonString(body, "appliedState", "");
 
-        bool changed = parseAndStageConfig(newInt, newPow, newLcd, rTareId, newCal);
+        bool changed = parseAndStageConfig(newInt, newPow, newLcd, rTareId, newCal, newNightEco, newNightInt);
         if (changed || remoteApplied != buildAppliedTag()) {
           forceWriteAck = true;
         }
@@ -751,6 +808,10 @@ void syncFirebaseDeviceNode(bool forceWriteAck) {
     }
     patchJson += ",\"ackTareId\":" + String(lastAckTareId)
                + ",\"calFactor\":" + String(cfgCalFactor, 1)
+               + ",\"nightEco\":" + String(cfgNightEcoEnabled ? 1 : 0)
+               + ",\"nightIntMin\":" + String(cfgNightIntervalMin)
+               + ",\"activeIntervalMin\":" + String(getEffectiveIntervalMin())
+               + ",\"nightEcoActive\":" + String(isNightEcoWindowActive() ? "true" : "false")
                + ",\"appliedState\":\"" + buildAppliedTag()
                + "\",\"ssid\":\"" + WiFi.SSID()
                + "\",\"localIp\":\"" + WiFi.localIP().toString()
@@ -1013,7 +1074,7 @@ void setup() {
     lcdDisplayActive = true;
     lcdBacklightActive = true;
     lcd.setCursor(0, 0);
-    lcd.print("KH CocoScale 2.8");
+    lcd.print("KH CocoScale 2.9");
     lcd.setCursor(0, 1);
     lcd.print("Connecting WiFi ");
   }
@@ -1024,6 +1085,7 @@ void setup() {
   hx711PoweredUp = false;
 
   setupWiFiMulti(18);
+  syncNtpClockIfNeeded();
   setupLocalHttpServer();
 
   // Pull latest Firebase config immediately on boot & ACK
@@ -1097,7 +1159,7 @@ void loop() {
   }
 
   // Queue scheduled Google Sheet weight upload
-  unsigned long logIntervalMs = (unsigned long)cfgIntervalMin * 60UL * 1000UL;
+  unsigned long logIntervalMs = (unsigned long)max(1, getEffectiveIntervalMin()) * 60UL * 1000UL;
   if (!pendingSheetUpload && (now - lastLogTime >= logIntervalMs)) {
     lastLogTime = now;
     float cleanWeight = readStabilizedWeightKg(11);
