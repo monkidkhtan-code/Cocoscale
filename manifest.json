@@ -4,8 +4,8 @@
   "description": "Multi-plot load-cell cocopeat moisture, dry-back & irrigation monitor for chili fertigation.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#090f15",
-  "theme_color": "#0d9488",
+  "background_color": "#06140d",
+  "theme_color": "#4e8f34",
   "orientation": "portrait-primary",
   "icons": [
     {

@@ -1,17 +1,17 @@
 :root {
-  --bg-base: #070d12;
-  --bg-surface: #0e1720;
-  --bg-elevated: #14212e;
-  --bg-hover: #1a2b3c;
-  --border-subtle: rgba(148, 163, 184, 0.14);
-  --border-strong: rgba(56, 189, 248, 0.32);
+  --bg-base: #06140d;
+  --bg-surface: #0b1f15;
+  --bg-elevated: #112b1d;
+  --bg-hover: #173826;
+  --border-subtle: rgba(110, 200, 130, 0.16);
+  --border-strong: rgba(92, 184, 92, 0.38);
 
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #f1f7f3;
+  --text-secondary: #9bb8a5;
+  --text-muted: #648270;
 
-  --accent-teal: #14b8a6;
-  --accent-emerald: #10b981;
+  --accent-teal: #5a9e42;
+  --accent-emerald: #22c55e;
   --accent-sky: #38bdf8;
   --accent-amber: #f59e0b;
   --accent-red: #ef4444;
@@ -31,7 +31,7 @@
 }
 
 html, body {
-  background: radial-gradient(circle at 15% 0%, #0d2229 0%, var(--bg-base) 52%);
+  background: radial-gradient(circle at 18% 0%, #123622 0%, #091d13 42%, var(--bg-base) 100%);
   color: var(--text-primary);
   font-family: var(--font-sans);
   min-height: 100vh;
@@ -57,9 +57,9 @@ html, body {
   justify-content: space-between;
   gap: 0.55rem;
   padding: 0.5rem 0.85rem;
-  background: rgba(14, 23, 32, 0.86);
+  background: linear-gradient(180deg, rgba(16, 44, 28, 0.92), rgba(10, 29, 19, 0.92));
   backdrop-filter: blur(14px);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid rgba(110, 200, 130, 0.22);
   border-radius: var(--radius-lg);
   margin-bottom: 0.7rem;
   flex-wrap: nowrap;
@@ -196,14 +196,14 @@ html, body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #0d9488, #059669);
-  border-color: rgba(45, 212, 191, 0.4);
+  background: linear-gradient(135deg, #5a9e42, #3f7d2c);
+  border-color: rgba(134, 239, 172, 0.38);
   color: #ffffff;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #14b8a6, #10b981);
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
+  background: linear-gradient(135deg, #68b04e, #4b9235);
+  box-shadow: 0 4px 14px rgba(90, 158, 66, 0.32);
 }
 
 .btn-amber {
@@ -330,8 +330,8 @@ html, body {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  background: rgba(14, 23, 32, 0.48);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(12, 34, 22, 0.65);
+  border: 1px solid rgba(110, 200, 130, 0.14);
   border-bottom: none;
   border-radius: 10px 10px 0 0;
   padding: 0.48rem 0.85rem;
@@ -345,14 +345,14 @@ html, body {
 }
 
 .station-tab:hover {
-  background: rgba(24, 38, 52, 0.72);
+  background: rgba(19, 49, 32, 0.82);
   color: var(--text-primary);
 }
 
 .station-tab.selected {
-  background: var(--bg-elevated);
+  background: #123120;
   color: var(--text-primary);
-  border-color: rgba(148, 163, 184, 0.28);
+  border-color: rgba(110, 200, 130, 0.32);
   border-top-color: var(--station-color, var(--accent-teal));
   box-shadow: inset 0 2.5px 0 var(--station-color, var(--accent-teal));
   padding-top: 0.54rem;
@@ -916,7 +916,7 @@ html, body {
 .secondary-pct {
   font-size: 1.55rem;
   font-weight: 700;
-  color: #2dd4bf;
+  color: #4ade80;
 }
 
 .water-liters-line {
@@ -1223,8 +1223,8 @@ html, body {
 }
 
 .pill-btn.active {
-  background: rgba(20, 184, 166, 0.22);
-  color: #5eead4;
+  background: rgba(90, 158, 66, 0.28);
+  color: #86efac;
 }
 
 .pill-btn.overlay-lux.active {
@@ -1510,8 +1510,8 @@ input:focus, select:focus {
   margin-top: 0.65rem;
   margin-bottom: 0.5rem;
   border-radius: var(--radius-sm);
-  background: rgba(14, 165, 233, 0.07);
-  border: 1px solid rgba(56, 189, 248, 0.24);
+  background: rgba(17, 45, 31, 0.72);
+  border: 1px solid rgba(74, 222, 128, 0.22);
   font-size: 0.73rem;
 }
 
