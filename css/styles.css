@@ -1495,21 +1495,44 @@ input:focus, select:focus {
   font-size: 0.73rem;
 }
 
-.hw-live-bar-info {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem 0.55rem;
-  flex-wrap: wrap;
-}
-
-.hw-live-bar-actions {
+.hw-live-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
   flex-wrap: wrap;
-  padding-top: 0.4rem;
+}
+
+.hw-live-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hw-live-pills-row::-webkit-scrollbar {
+  display: none;
+}
+
+.hw-live-pills-row .wifi-live-pill {
+  font-size: 0.66rem;
+  padding: 0.14rem 0.44rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hw-live-bar-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  padding-top: 0.38rem;
   border-top: 1px solid rgba(56, 189, 248, 0.14);
+}
+
+.hw-live-bar-actions .btn {
+  justify-content: center;
 }
 
 .hw-live-mode-group {

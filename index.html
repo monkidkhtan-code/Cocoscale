@@ -23,7 +23,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=1.9.14">
+  <link rel="stylesheet" href="css/styles.css?v=1.9.15">
 </head>
 <body>
   <div class="app-shell">
@@ -34,7 +34,7 @@
         <div>
           <div class="brand-title">
             <span>KH CocoScale</span>
-            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.14</span>
+            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.15</span>
           </div>
           <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
         </div>
@@ -393,8 +393,15 @@
         </div>
 
         <div id="hw-live-bar" class="hw-live-bar mono">
-          <div class="hw-live-bar-info">
-            <span style="color:#7dd3fc; font-weight:700;">⚡ ESP32:</span>
+          <div class="hw-live-header-row">
+            <span style="color:#7dd3fc; font-weight:700;">⚡ ESP32</span>
+            <div class="hw-live-mode-group">
+              <span id="hw-live-interval" style="color:#5eead4;">Every 1m</span>
+              <span style="color:var(--text-muted);">·</span>
+              <span id="hw-live-power" style="color:#e2e8f0;">Always Awake</span>
+            </div>
+          </div>
+          <div class="hw-live-pills-row">
             <span id="hw-live-online" class="wifi-live-pill" title="Scale Connectivity Status (Online / Offline)">⚪ Checking...</span>
             <span id="hw-live-battery" class="wifi-live-pill" style="cursor:pointer;" title="Click to view Battery, Solar &amp; Power Analytics">🔋 --%</span>
             <span id="hw-live-wifi" class="wifi-live-pill" title="ESP32 Wi-Fi Signal Strength (RSSI dBm)">📶 Wi-Fi --</span>
@@ -403,21 +410,14 @@
             <span id="hw-live-sync" style="color:var(--text-secondary);">Ready</span>
           </div>
           <div class="hw-live-bar-actions">
-            <div class="hw-live-mode-group">
-              <span id="hw-live-interval" style="color:#5eead4;">Every 1m</span>
-              <span style="color:var(--text-muted);">·</span>
-              <span id="hw-live-power" style="color:#e2e8f0;">Always Awake</span>
-            </div>
-            <div style="display:flex; gap:0.4rem; align-items:center;">
-              <button type="button" id="btn-instant-lcd-toggle" class="btn btn-sm" style="padding:0.22rem 0.55rem; font-size:0.71rem; border-color:rgba(250,204,21,0.45); color:#fde047;" title="Instant 1-click toggle for 16x2 LCD Backlight (<1 sec)">
-                <i data-lucide="sun"></i>
-                <span id="btn-instant-lcd-label">LCD Light: ON</span>
-              </button>
-              <button type="button" id="btn-hero-open-hardware" class="btn btn-sm" style="padding:0.22rem 0.55rem; font-size:0.71rem;">
-                <i data-lucide="settings-2"></i>
-                <span>Control ESP32</span>
-              </button>
-            </div>
+            <button type="button" id="btn-instant-lcd-toggle" class="btn btn-sm" style="padding:0.22rem 0.55rem; font-size:0.71rem; border-color:rgba(250,204,21,0.45); color:#fde047;" title="Instant 1-click toggle for 16x2 LCD Backlight (<1 sec)">
+              <i data-lucide="sun"></i>
+              <span id="btn-instant-lcd-label">LCD Light: ON</span>
+            </button>
+            <button type="button" id="btn-hero-open-hardware" class="btn btn-sm" style="padding:0.22rem 0.55rem; font-size:0.71rem;">
+              <i data-lucide="settings-2"></i>
+              <span>Control ESP32</span>
+            </button>
           </div>
         </div>
 
@@ -1323,11 +1323,11 @@ function respond(obj, callback) {
   <!-- Toast Notification -->
   <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
 
-  <script src="js/config.js?v=1.9.14"></script>
-  <script src="js/moistureEngine.js?v=1.9.14"></script>
-  <script src="js/sheetsService.js?v=1.9.14"></script>
-  <script src="js/rainpointService.js?v=1.9.14"></script>
-  <script src="js/deviceService.js?v=1.9.14"></script>
-  <script src="js/app.js?v=1.9.14"></script>
+  <script src="js/config.js?v=1.9.15"></script>
+  <script src="js/moistureEngine.js?v=1.9.15"></script>
+  <script src="js/sheetsService.js?v=1.9.15"></script>
+  <script src="js/rainpointService.js?v=1.9.15"></script>
+  <script src="js/deviceService.js?v=1.9.15"></script>
+  <script src="js/app.js?v=1.9.15"></script>
 </body>
 </html>
