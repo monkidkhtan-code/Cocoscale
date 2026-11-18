@@ -959,8 +959,8 @@ html, body {
 }
 
 .hero-advisory-compact {
-  margin-top: 0.75rem;
-  padding: 0.6rem 0.8rem;
+  margin-top: 0.15rem;
+  padding: 0.55rem 0.75rem;
 }
 
 /* 3-Parameter Drip Decision Card (Compact Single-Row Strip) */
@@ -1967,9 +1967,10 @@ input:focus, select:focus {
     gap: 0.2rem 0.5rem;
   }
   .hero-advisory-compact {
-    margin-top: 0.6rem;
-    padding: 0.5rem 0.68rem;
-    font-size: 0.75rem;
+    margin-top: 0.1rem;
+    padding: 0.42rem 0.58rem;
+    font-size: 0.71rem;
+    line-height: 1.35;
   }
   .quick-cal-actions {
     gap: 0.45rem;
