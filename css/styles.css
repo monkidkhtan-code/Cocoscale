@@ -315,10 +315,15 @@ html, body {
   align-items: flex-end;
   gap: 0.28rem;
   overflow-x: auto;
-  scrollbar-width: thin;
+  overflow-y: hidden;
+  scrollbar-width: none;
   border-bottom: 1px solid rgba(148, 163, 184, 0.22);
   padding: 0 0.25rem;
   margin-bottom: 0.85rem;
+}
+
+.station-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .station-tab {
