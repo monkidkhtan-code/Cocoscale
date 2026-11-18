@@ -1361,6 +1361,18 @@ html, body {
   width: 100%;
 }
 
+@media (min-width: 961px) {
+  .hero-grid > .chart-panel {
+    display: flex;
+    flex-direction: column;
+  }
+  .hero-grid .chart-canvas-wrap {
+    flex: 1 1 0;
+    min-height: 310px;
+    height: auto;
+  }
+}
+
 /* Bottom Logs Grid */
 .details-grid {
   display: grid;
