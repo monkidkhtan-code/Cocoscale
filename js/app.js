@@ -36,7 +36,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.27").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.28").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1492,12 +1492,65 @@ class CocoScaleApp {
       }
     };
 
+    const dayNightPlugin = {
+      id: "dayNightBands",
+      beforeDatasetsDraw(chart) {
+        const { ctx: c, chartArea, scales: { x } } = chart;
+        if (!chartArea || !x || !Number.isFinite(x.min) || !Number.isFinite(x.max) || x.max <= x.min) return;
+
+        c.save();
+        c.beginPath();
+        c.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+        c.clip();
+
+        // Continuous 12h bands: Day (07:00–19:00) & Night (19:00–07:00)
+        const startDate = new Date(x.min);
+        const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() - 1, 0, 0, 0, 0);
+        const endMs = x.max;
+
+        while (cursor.getTime() <= endMs) {
+          const y = cursor.getFullYear();
+          const m = cursor.getMonth();
+          const d = cursor.getDate();
+
+          const segments = [
+            { from: new Date(y, m, d, 7, 0, 0, 0).getTime(), to: new Date(y, m, d, 19, 0, 0, 0).getTime(), night: false },
+            { from: new Date(y, m, d, 19, 0, 0, 0).getTime(), to: new Date(y, m, d + 1, 7, 0, 0, 0).getTime(), night: true }
+          ];
+
+          for (const seg of segments) {
+            const visFrom = Math.max(seg.from, x.min);
+            const visTo = Math.min(seg.to, x.max);
+            if (visTo <= visFrom) continue;
+
+            const px1 = x.getPixelForValue(visFrom);
+            const px2 = x.getPixelForValue(visTo);
+            const w = px2 - px1;
+            if (w <= 0.5) continue;
+
+            c.fillStyle = seg.night
+              ? "rgba(2, 8, 18, 0.42)"
+              : "rgba(250, 204, 21, 0.04)";
+            c.fillRect(px1, chartArea.top, w, chartArea.bottom - chartArea.top);
+
+            if (w >= 46) {
+              c.font = "600 9.5px 'JetBrains Mono', monospace";
+              c.fillStyle = seg.night ? "rgba(148, 163, 184, 0.72)" : "rgba(253, 224, 71, 0.72)";
+              c.fillText(seg.night ? "🌙 Night" : "☀️ Day", px1 + 6, chartArea.top + 13);
+            }
+          }
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        c.restore();
+      }
+    };
+
     const isWeightMode = this.chartMode === "weight";
 
     this.chartInstance = new Chart(ctx, {
       type: "line",
       data: { datasets },
-      plugins: [thresholdPlugin],
+      plugins: [dayNightPlugin, thresholdPlugin],
       options: {
         responsive: true,
         maintainAspectRatio: false,
