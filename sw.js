@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kh-cocoscale-v1.9.13';
+const CACHE_NAME = 'kh-cocoscale-v1.9.14';
 const STATIC_ASSETS = [
   './',
   './index.html',

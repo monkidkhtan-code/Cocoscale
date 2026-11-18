@@ -1152,7 +1152,6 @@ html, body {
   flex-wrap: wrap;
   gap: 0.45rem 0.65rem;
   padding: 0.48rem 0.75rem;
-  margin-bottom: 0.5rem;
   border-radius: var(--radius-sm);
   background: linear-gradient(90deg, rgba(250, 204, 21, 0.08), rgba(251, 146, 60, 0.08));
   border: 1px solid rgba(250, 204, 21, 0.25);

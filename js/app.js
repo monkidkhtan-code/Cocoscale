@@ -35,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.13").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.14").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -923,13 +923,6 @@ class CocoScaleApp {
 
     document.getElementById("marker-trigger").style.bottom = `${Math.min(88, Math.max(10, cal.irrigateTriggerPct * 0.92))}%`;
     document.getElementById("marker-critical").style.bottom = `${Math.min(80, Math.max(6, cal.criticalFloorPct * 0.92))}%`;
-
-    document.getElementById("cal-summary-bar").innerHTML = `
-      <span>FC (100%): <strong>${previewMetrics.fieldCapacityRawKg.toFixed(2)} kg</strong></span>
-      <span>Trigger (${cal.irrigateTriggerPct}%): <strong>${previewMetrics.triggerRawKg.toFixed(2)} kg</strong></span>
-      <span>Dry Tare: <strong>${Number(cal.dryWeightKg).toFixed(2)} kg</strong></span>
-      <span>Biomass Offset: <strong>+${Number(cal.plantBiomassKg || 0).toFixed(2)} kg</strong></span>
-    `;
 
     const visualWrap = document.getElementById("polybag-chili-visual");
 
