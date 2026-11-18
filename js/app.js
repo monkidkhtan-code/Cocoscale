@@ -35,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.15").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.16").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -909,7 +909,6 @@ class CocoScaleApp {
     const analysis = state?.analysis;
 
     document.getElementById("active-station-title").textContent = st.name;
-    document.getElementById("active-station-meta").textContent = `${st.crop} · Tab/GID: ${st.sheetSource.gid !== "" ? `gid=${st.sheetSource.gid}` : st.sheetSource.tabName || "Default"}`;
     document.getElementById("btn-open-active-sheet").href = st.sheetSource?.url || this.config.defaultSheetUrl;
 
     this.renderHardwareLiveBar(st);
