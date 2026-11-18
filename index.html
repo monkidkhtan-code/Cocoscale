@@ -24,18 +24,18 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=1.9.26">
+  <link rel="stylesheet" href="css/styles.css?v=1.9.27">
 </head>
 <body>
   <div class="app-shell">
     <!-- Top Header (Compact) -->
     <header class="top-bar">
       <div class="brand-wrap">
-        <img src="assets/logo-mark.png?v=1.9.26" alt="KH CocoScale Logo" class="brand-icon">
+        <img src="assets/logo-mark.png?v=1.9.27" alt="KH CocoScale Logo" class="brand-icon">
         <div>
           <div class="brand-title">
             <span>KH CocoScale</span>
-            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.26</span>
+            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.27</span>
           </div>
           <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
         </div>
@@ -445,30 +445,40 @@
           </div>
         </div>
 
-        <div style="display:flex; gap:0.55rem; flex-wrap:wrap; align-items:center;">
-          <div class="pill-group" id="chart-overlay-group" title="Toggle Lighting &amp; Temperature overlays">
-            <button type="button" id="btn-overlay-lux" class="pill-btn overlay-lux active">☀ Light</button>
-            <button type="button" id="btn-overlay-temp" class="pill-btn overlay-temp active">🌡 Temp</button>
+        <div class="chart-toolbar-controls">
+          <div class="chart-toolbar-row">
+            <div class="pill-group" id="chart-overlay-group" title="Toggle Lighting &amp; Temperature overlays">
+              <button type="button" id="btn-overlay-lux" class="pill-btn overlay-lux active">☀ Light</button>
+              <button type="button" id="btn-overlay-temp" class="pill-btn overlay-temp active">🌡 Temp</button>
+            </div>
+
+            <div class="pill-group" id="chart-mode-group">
+              <button type="button" class="pill-btn active" data-mode="weight">Weight</button>
+              <button type="button" class="pill-btn" data-mode="moisture">Moisture %</button>
+              <button type="button" class="pill-btn" data-mode="compare">Compare</button>
+            </div>
           </div>
 
-          <div class="pill-group" id="chart-mode-group">
-            <button type="button" class="pill-btn active" data-mode="weight">Weight (kg)</button>
-            <button type="button" class="pill-btn" data-mode="moisture">Moisture (%)</button>
-            <button type="button" class="pill-btn" data-mode="compare">Compare Plots</button>
-          </div>
+          <div class="chart-toolbar-row-wrap">
+            <div class="pill-group" id="chart-range-group">
+              <button type="button" class="pill-btn" data-hours="6">6H</button>
+              <button type="button" class="pill-btn active" data-hours="24">24H</button>
+              <button type="button" class="pill-btn" data-hours="72">3D</button>
+              <button type="button" class="pill-btn" data-hours="168">7D</button>
+              <button type="button" class="pill-btn" data-hours="0">ALL</button>
+            </div>
 
-          <div class="pill-group" id="chart-range-group">
-            <button type="button" class="pill-btn" data-hours="6">6H</button>
-            <button type="button" class="pill-btn active" data-hours="24">24H</button>
-            <button type="button" class="pill-btn" data-hours="72">3D</button>
-            <button type="button" class="pill-btn" data-hours="168">7D</button>
-            <button type="button" class="pill-btn" data-hours="0">ALL</button>
-          </div>
+            <div class="pill-group chart-day-nav" id="chart-day-nav" title="Browse chart day by day">
+              <button type="button" id="btn-chart-day-prev" class="pill-btn" title="Previous day">◀</button>
+              <button type="button" id="btn-chart-day-label" class="pill-btn mono" title="Tap to toggle Today / Live">Live</button>
+              <button type="button" id="btn-chart-day-next" class="pill-btn" title="Next day">▶</button>
+            </div>
 
-          <button type="button" id="btn-toggle-chart-scale" class="btn btn-sm" style="padding:0.32rem 0.65rem; font-size:0.74rem; border-color:rgba(45,212,191,0.38); color:#5eead4;" title="Configure Y-axis weight range (Adaptive vs Fixed Min/Max)">
-            <i data-lucide="Sliders" style="width:13px; height:13px;"></i>
-            <span id="btn-chart-scale-label">⚙ Range: Adaptive</span>
-          </button>
+            <button type="button" id="btn-toggle-chart-scale" class="btn btn-sm" style="padding:0.3rem 0.58rem; font-size:0.72rem; border-color:rgba(45,212,191,0.38); color:#5eead4;" title="Configure Y-axis weight range (Adaptive vs Fixed Min/Max)">
+              <i data-lucide="Sliders" style="width:13px; height:13px;"></i>
+              <span id="btn-chart-scale-label">⚙ Range: Adaptive</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1321,11 +1331,11 @@ function respond(obj, callback) {
   <!-- Toast Notification -->
   <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
 
-  <script src="js/config.js?v=1.9.26"></script>
-  <script src="js/moistureEngine.js?v=1.9.26"></script>
-  <script src="js/sheetsService.js?v=1.9.26"></script>
-  <script src="js/rainpointService.js?v=1.9.26"></script>
-  <script src="js/deviceService.js?v=1.9.26"></script>
-  <script src="js/app.js?v=1.9.26"></script>
+  <script src="js/config.js?v=1.9.27"></script>
+  <script src="js/moistureEngine.js?v=1.9.27"></script>
+  <script src="js/sheetsService.js?v=1.9.27"></script>
+  <script src="js/rainpointService.js?v=1.9.27"></script>
+  <script src="js/deviceService.js?v=1.9.27"></script>
+  <script src="js/app.js?v=1.9.27"></script>
 </body>
 </html>

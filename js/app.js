@@ -13,6 +13,7 @@ class CocoScaleApp {
     this.hwDraft = null;
     this.chartMode = this.config.chartPrefs?.mode || "weight"; // 'weight' | 'moisture' | 'compare'
     this.chartHours = Number.isFinite(Number(this.config.chartPrefs?.hours)) ? Number(this.config.chartPrefs.hours) : 24;
+    this.chartSelectedDay = null; // null = Live rolling window; Date at local 00:00:00 = single-day view
     this.chartYMode = this.config.chartYScale?.mode || "adaptive"; // 'adaptive' | 'fixed'
     this.chartYMinKg = Number.isFinite(Number(this.config.chartYScale?.minKg)) ? Number(this.config.chartYScale.minKg) : 2.0;
     this.chartYMaxKg = Number.isFinite(Number(this.config.chartYScale?.maxKg)) ? Number(this.config.chartYScale.maxKg) : 9.0;
@@ -35,7 +36,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.26").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.27").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -208,10 +209,40 @@ class CocoScaleApp {
       const btn = e.target.closest(".pill-btn");
       if (!btn) return;
       this.chartHours = Number(btn.dataset.hours);
+      this.chartSelectedDay = null;
       this.syncChartToolbarUI();
       this.saveChartYScaleSettings();
       this.renderChart();
     });
+
+    // Day-by-day chart navigation (◀ / Day / ▶)
+    const getLocalMidnight = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+    const btnDayPrev = document.getElementById("btn-chart-day-prev");
+    const btnDayLabel = document.getElementById("btn-chart-day-label");
+    const btnDayNext = document.getElementById("btn-chart-day-next");
+    if (btnDayPrev && btnDayLabel && btnDayNext) {
+      btnDayPrev.addEventListener("click", () => {
+        const base = this.chartSelectedDay ? new Date(this.chartSelectedDay.getTime()) : getLocalMidnight();
+        base.setDate(base.getDate() - 1);
+        this.chartSelectedDay = base;
+        this.syncChartToolbarUI();
+        this.renderChart();
+      });
+      btnDayNext.addEventListener("click", () => {
+        if (!this.chartSelectedDay) return;
+        const next = new Date(this.chartSelectedDay.getTime());
+        next.setDate(next.getDate() + 1);
+        const today = getLocalMidnight();
+        this.chartSelectedDay = next.getTime() > today.getTime() ? null : next;
+        this.syncChartToolbarUI();
+        this.renderChart();
+      });
+      btnDayLabel.addEventListener("click", () => {
+        this.chartSelectedDay = this.chartSelectedDay ? null : getLocalMidnight();
+        this.syncChartToolbarUI();
+        this.renderChart();
+      });
+    }
 
     // Graph Y-Axis Weight Range Settings Panel
     this.syncChartToolbarUI();
@@ -1266,18 +1297,28 @@ class CocoScaleApp {
       ? rp.series[rp.series.length - 1].ms
       : 0;
     const anchorMs = Math.max(latestWeightMs, latestRpMs);
-    const cutoffMs = this.chartHours > 0 && anchorMs > 0
+    const dayStartMs = this.chartSelectedDay ? this.chartSelectedDay.getTime() : 0;
+    const dayEndMs = this.chartSelectedDay ? dayStartMs + 24 * 3600 * 1000 - 1 : 0;
+    const cutoffMs = !this.chartSelectedDay && this.chartHours > 0 && anchorMs > 0
       ? anchorMs - this.chartHours * 3600 * 1000
       : 0;
 
     const filterWeightRows = (rows) => {
       if (!rows || rows.length === 0) return [];
+      if (this.chartSelectedDay) {
+        return rows.filter((r) => {
+          const t = r.ts.getTime();
+          return t >= dayStartMs && t <= dayEndMs;
+        });
+      }
       if (!cutoffMs) return rows;
       return rows.filter((r) => r.ts.getTime() >= cutoffMs);
     };
 
     const rpFiltered = overlaysWanted
-      ? (cutoffMs ? rp.series.filter((p) => p.ms >= cutoffMs) : rp.series)
+      ? (this.chartSelectedDay
+          ? rp.series.filter((p) => p.ms >= dayStartMs && p.ms <= dayEndMs)
+          : (cutoffMs ? rp.series.filter((p) => p.ms >= cutoffMs) : rp.series))
       : [];
 
     let datasets = [];
@@ -1602,8 +1643,29 @@ class CocoScaleApp {
     });
 
     document.querySelectorAll("#chart-range-group .pill-btn").forEach((b) => {
-      b.classList.toggle("active", Number(b.dataset.hours) === Number(this.chartHours));
+      b.classList.toggle("active", !this.chartSelectedDay && Number(b.dataset.hours) === Number(this.chartHours));
     });
+
+    const dayLabelEl = document.getElementById("btn-chart-day-label");
+    const dayNextEl = document.getElementById("btn-chart-day-next");
+    if (dayLabelEl) {
+      if (this.chartSelectedDay) {
+        const now = new Date();
+        const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const selMs = this.chartSelectedDay.getTime();
+        const diffDays = Math.round((todayMs - selMs) / (24 * 3600 * 1000));
+        const label = diffDays === 0
+          ? "Today"
+          : this.chartSelectedDay.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+        dayLabelEl.textContent = label;
+        dayLabelEl.classList.add("active");
+        if (dayNextEl) dayNextEl.classList.remove("disabled");
+      } else {
+        dayLabelEl.textContent = "Live";
+        dayLabelEl.classList.remove("active");
+        if (dayNextEl) dayNextEl.classList.add("disabled");
+      }
+    }
   }
 
   syncChartScalePanelUI() {

@@ -1242,6 +1242,51 @@ html, body {
   color: #34d399;
 }
 
+.chart-toolbar-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+  width: 100%;
+}
+
+.chart-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chart-toolbar-row::-webkit-scrollbar {
+  display: none;
+}
+
+.chart-toolbar-row-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.chart-day-nav .pill-btn {
+  padding: 0.3rem 0.48rem;
+  font-size: 0.72rem;
+}
+
+.chart-day-nav .pill-btn.disabled {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  .chart-toolbar-row .pill-btn {
+    padding: 0.28rem 0.48rem;
+    font-size: 0.69rem;
+    white-space: nowrap;
+  }
+}
+
 .chart-toolbar {
   display: flex;
   align-items: center;
