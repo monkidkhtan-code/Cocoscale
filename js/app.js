@@ -35,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.11").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.12").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;

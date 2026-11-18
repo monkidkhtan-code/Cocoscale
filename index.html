@@ -23,7 +23,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=1.9.11">
+  <link rel="stylesheet" href="css/styles.css?v=1.9.12">
 </head>
 <body>
   <div class="app-shell">
@@ -34,7 +34,7 @@
         <div>
           <div class="brand-title">
             <span>KH CocoScale</span>
-            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.11</span>
+            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.12</span>
           </div>
           <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
         </div>
@@ -391,42 +391,6 @@
             <span>Calibrate Bag</span>
           </button>
         </div>
-      </div>
-
-      <!-- Right: Fertigation Dose & Dry-Back Analytics -->
-      <div class="panel">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">Fertigation &amp; Dry-Back Intelligence</div>
-            <div class="panel-subtitle">Exact gravimetric water loss (`1.00 kg = 1,000 mL` water)</div>
-          </div>
-        </div>
-
-        <div class="kpi-grid">
-          <div class="kpi-tile">
-            <div class="kpi-label">Water Deficit to 100% FC</div>
-            <div id="kpi-deficit-ml" class="kpi-value mono">-- mL</div>
-            <div id="kpi-deficit-sub" class="kpi-sub">Target Field Capacity: -- kg</div>
-          </div>
-
-          <div class="kpi-tile">
-            <div class="kpi-label">Recommended Drip Dose</div>
-            <div id="kpi-shot-ml" class="kpi-value mono" style="color:#38bdf8;">-- mL</div>
-            <div id="kpi-shot-sub" class="kpi-sub">Includes 15% runoff for EC flush</div>
-          </div>
-
-          <div class="kpi-tile">
-            <div class="kpi-label">Today's Peak Dry-Back</div>
-            <div id="kpi-dryback-today" class="kpi-value mono">--%</div>
-            <div id="kpi-dryback-sub" class="kpi-sub">Peak: -- kg · 0 shots today</div>
-          </div>
-
-          <div class="kpi-tile">
-            <div class="kpi-label">Uptake Rate &amp; Next Drip</div>
-            <div id="kpi-uptake-rate" class="kpi-value mono">-- mL/hr</div>
-            <div id="kpi-uptake-sub" class="kpi-sub">Overnight dry-back: --</div>
-          </div>
-        </div>
 
         <div id="hw-live-bar" class="hw-live-bar mono">
           <div class="hw-live-bar-info">
@@ -464,6 +428,42 @@
           <span>Trigger: --% (-- kg)</span>
           <span>Dry Tare: -- kg</span>
           <span>Plant Offset: +0.00 kg</span>
+        </div>
+      </div>
+
+      <!-- Right: Fertigation Dose & Dry-Back Analytics -->
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Fertigation &amp; Dry-Back Intelligence</div>
+            <div class="panel-subtitle">Exact gravimetric water loss (`1.00 kg = 1,000 mL` water)</div>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-tile">
+            <div class="kpi-label">Water Deficit to 100% FC</div>
+            <div id="kpi-deficit-ml" class="kpi-value mono">-- mL</div>
+            <div id="kpi-deficit-sub" class="kpi-sub">Target Field Capacity: -- kg</div>
+          </div>
+
+          <div class="kpi-tile">
+            <div class="kpi-label">Recommended Drip Dose</div>
+            <div id="kpi-shot-ml" class="kpi-value mono" style="color:#38bdf8;">-- mL</div>
+            <div id="kpi-shot-sub" class="kpi-sub">Includes 15% runoff for EC flush</div>
+          </div>
+
+          <div class="kpi-tile">
+            <div class="kpi-label">Today's Peak Dry-Back</div>
+            <div id="kpi-dryback-today" class="kpi-value mono">--%</div>
+            <div id="kpi-dryback-sub" class="kpi-sub">Peak: -- kg · 0 shots today</div>
+          </div>
+
+          <div class="kpi-tile">
+            <div class="kpi-label">Uptake Rate &amp; Next Drip</div>
+            <div id="kpi-uptake-rate" class="kpi-value mono">-- mL/hr</div>
+            <div id="kpi-uptake-sub" class="kpi-sub">Overnight dry-back: --</div>
+          </div>
         </div>
       </div>
     </section>
@@ -1325,11 +1325,11 @@ function respond(obj, callback) {
   <!-- Toast Notification -->
   <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
 
-  <script src="js/config.js?v=1.9.11"></script>
-  <script src="js/moistureEngine.js?v=1.9.11"></script>
-  <script src="js/sheetsService.js?v=1.9.11"></script>
-  <script src="js/rainpointService.js?v=1.9.11"></script>
-  <script src="js/deviceService.js?v=1.9.11"></script>
-  <script src="js/app.js?v=1.9.11"></script>
+  <script src="js/config.js?v=1.9.12"></script>
+  <script src="js/moistureEngine.js?v=1.9.12"></script>
+  <script src="js/sheetsService.js?v=1.9.12"></script>
+  <script src="js/rainpointService.js?v=1.9.12"></script>
+  <script src="js/deviceService.js?v=1.9.12"></script>
+  <script src="js/app.js?v=1.9.12"></script>
 </body>
 </html>
