@@ -35,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.25").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.26").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -377,6 +377,26 @@ class CocoScaleApp {
     this.tickCountdown();
   }
 
+  getEffectiveIntervalInfo(cloud, dc) {
+    const baseMin = Number(cloud?.intervalMin) || Number(dc?.intervalMin) || 10;
+    const nightEcoEnabled = cloud?.nightEco !== undefined ? !!cloud.nightEco : (dc?.nightEco !== false);
+    const nightIntMin = Number(cloud?.nightIntMin) || Number(dc?.nightIntMin) || 20;
+    const hr = new Date().getHours();
+    const isNightWindow = hr >= 19 || hr < 6;
+    const isNightEco = nightEcoEnabled && isNightWindow;
+
+    if (Number(cloud?.activeIntervalMin) > 0) {
+      return {
+        mins: Number(cloud.activeIntervalMin),
+        isNightEco: isNightEco || Number(cloud.activeIntervalMin) > baseMin
+      };
+    }
+    return {
+      mins: isNightEco ? Math.max(baseMin, nightIntMin) : baseMin,
+      isNightEco
+    };
+  }
+
   tickCountdown() {
     const heroValEl = document.getElementById("hero-countdown-val");
     const barEl = document.getElementById("hw-live-countdown");
@@ -389,7 +409,7 @@ class CocoScaleApp {
     const latestRow = rows.slice(-1)[0] || null;
     const sdc = st.deviceControl || {};
     const cloud = sdc.plotKey ? this.deviceCloudMap[sdc.plotKey] : null;
-    const intervalMin = Number(cloud?.intervalMin) || Number(sdc.intervalMin) || 15;
+    const intervalMin = this.getEffectiveIntervalInfo(cloud, sdc).mins;
 
     if (!latestRow || !(latestRow.ts instanceof Date) || isNaN(latestRow.ts.getTime())) {
       if (heroValEl) heroValEl.textContent = "Awaiting reading";
@@ -822,7 +842,7 @@ class CocoScaleApp {
 
     const dc = st.deviceControl || {};
     const cloud = dc.plotKey ? this.deviceCloudMap[dc.plotKey] : null;
-    const mins = cloud?.intervalMin || dc.intervalMin || 1;
+    const { mins, isNightEco } = this.getEffectiveIntervalInfo(cloud, dc);
     const pMode = cloud?.powerMode || dc.powerMode || "always_on";
     const lMode = cloud?.lcdMode || dc.lcdMode || "on";
 
@@ -841,7 +861,7 @@ class CocoScaleApp {
     const pMeta = DeviceService.POWER_MODES.find((x) => x.id === pMode) || DeviceService.POWER_MODES[0];
     const lMeta = DeviceService.LCD_MODES.find((x) => x.id === lMode) || DeviceService.LCD_MODES[0];
 
-    intEl.textContent = `Every ${mins}m`;
+    intEl.textContent = isNightEco ? `Every ${mins}m 🌙 Night` : `Every ${mins}m`;
     powEl.textContent = pMeta.shortLabel;
     lcdEl.textContent = lMeta.shortLabel;
     lcdEl.style.color = lMode === "on" ? "#fde047" : "#94a3b8";
