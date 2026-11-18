@@ -35,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.17").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.18").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -988,9 +988,12 @@ class CocoScaleApp {
     const weightDecimals = Math.abs(m.rawWeightKg) < 2 ? 3 : 2;
     document.getElementById("hero-weight-kg").textContent = m.rawWeightKg.toFixed(weightDecimals);
     document.getElementById("hero-moisture-pct").textContent = m.status === "UNLOADED" ? "Tare" : `${m.displayPct.toFixed(1)}%`;
-    document.getElementById("hero-water-liters").textContent = m.status === "UNLOADED"
-      ? `Water Capacity: ${m.waterCapacityKg.toFixed(2)} L · Scale Unloaded (awaiting ${Number(cal.dryWeightKg).toFixed(1)}–${m.fieldCapacityRawKg.toFixed(1)} kg polybag)`
-      : `Water in Bag: ${m.waterKg.toFixed(2)} L / ${m.waterCapacityKg.toFixed(2)} L · Dry-Back from FC: ${m.dryBackFromFcPct.toFixed(1)}%`;
+    const waterLitersEl = document.getElementById("hero-water-liters");
+    if (m.status === "UNLOADED") {
+      waterLitersEl.textContent = `Water Capacity: ${m.waterCapacityKg.toFixed(2)} L · Scale Unloaded (awaiting ${Number(cal.dryWeightKg).toFixed(1)}–${m.fieldCapacityRawKg.toFixed(1)} kg polybag)`;
+    } else {
+      waterLitersEl.innerHTML = `<div>Water in Bag: ${m.waterKg.toFixed(2)} L / ${m.waterCapacityKg.toFixed(2)} L</div><div>Dry-Back from FC: ${m.dryBackFromFcPct.toFixed(1)}%</div>`;
+    }
 
     const advEl = document.getElementById("hero-advisory");
     advEl.className = `advisory-box ${m.statusTone === "good" ? "" : m.statusTone}`;
