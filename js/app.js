@@ -35,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.3").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.4").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -708,77 +708,60 @@ class CocoScaleApp {
 
   renderStationStrip() {
     const container = document.getElementById("station-strip");
-    const cardsHtml = this.config.stations.map((st) => {
+    const tabsHtml = this.config.stations.map((st) => {
       const state = this.stationData[st.id];
       const isSelected = st.id === this.selectedStationId;
       const analysis = state?.analysis;
 
       if (!st.enabled) {
         return `
-          <div class="station-card standby ${isSelected ? "selected" : ""}" style="--station-color:${st.color}" data-station-id="${st.id}">
-            <div class="station-card-top">
-              <span class="station-short">${this.escapeHtml(st.shortName)}</span>
-              <span class="status-chip tone-muted">Standby</span>
-            </div>
-            <div class="station-metrics-row">
-              <span class="station-weight mono" style="color:var(--text-muted);">--.-- kg</span>
-              <span class="station-pct mono">Ready</span>
-            </div>
-            <div style="font-size:0.72rem; color:var(--text-secondary);">Click Scale Stations to enable</div>
-          </div>
+          <button type="button" class="station-tab standby ${isSelected ? "selected" : ""}" style="--station-color:${st.color}" data-station-id="${st.id}">
+            <span class="station-short">${this.escapeHtml(st.shortName)}</span>
+            <span class="status-chip tone-muted" style="font-size:0.62rem; padding:0.1rem 0.4rem;">Standby</span>
+          </button>
         `;
       }
 
       const hasData = analysis && analysis.hasData;
       const m = analysis?.metrics;
-      const chipTone = hasData ? `tone-${m.statusTone}` : "tone-muted";
-      const chipText = hasData ? m.statusLabel.split("·")[0].trim() : "No Data";
       const weightDecimals = hasData && Math.abs(m.rawWeightKg) < 2 ? 3 : 2;
       const weightText = hasData ? `${m.rawWeightKg.toFixed(weightDecimals)} kg` : "--.-- kg";
       const pctText = hasData ? `${m.displayPct.toFixed(1)}%` : "--%";
-      const fillWidth = hasData ? Math.min(100, Math.max(0, m.displayPct)) : 0;
       const sdc = st.deviceControl || {};
       const sCloud = sdc.plotKey ? this.deviceCloudMap[sdc.plotKey] : null;
       const sRows = this.getStationRows(st.id);
       const sLatest = sRows.slice(-1)[0] || null;
       const sOnline = DeviceService.checkDeviceOnlineStatus(sCloud, sLatest, sdc.intervalMin || 1);
-      const onlineDot = `<span style="font-size:0.65rem; margin-left:0.35rem; color:${sOnline.color}; vertical-align:middle;" title="Scale ${sOnline.label}">●</span>`;
+      const onlineDot = `<span style="font-size:0.6rem; color:${sOnline.color};" title="Scale ${sOnline.label}">●</span>`;
       const sRp = this.getStationRainpoint(st);
       const sTemp = sRp?.live?.temperature;
       const sLux = sRp?.live?.lux;
       const sCanDrip = hasData && ((m.rawWeightKg <= m.triggerRawKg) || (m.rawPct <= m.triggerPct)) && (sTemp !== null && sTemp > 28.0) && (sLux !== null && sLux > 500);
-      const dripBadge = sCanDrip ? `<span style="display:inline-block; margin-left:0.35rem; font-size:0.65rem; font-weight:800; color:#34d399; background:rgba(16,185,129,0.22); padding:0.1rem 0.35rem; border-radius:4px; border:1px solid rgba(16,185,129,0.45);" title="All 3 conditions met: Drip Ready!">💧 DRIP</span>` : "";
+      const dripBadge = sCanDrip ? `<span style="font-size:0.65rem; font-weight:800; color:#34d399;" title="All 3 conditions met: Drip Ready!">💧</span>` : "";
 
       return `
-        <div class="station-card ${isSelected ? "selected" : ""}" style="--station-color:${st.color}" data-station-id="${st.id}">
-          <div class="station-card-top">
-            <span class="station-short" style="display:inline-flex; align-items:center;">${this.escapeHtml(st.shortName)}${onlineDot}${dripBadge}</span>
-            <span class="status-chip ${chipTone}">${this.escapeHtml(chipText)}</span>
-          </div>
-          <div class="station-metrics-row">
-            <span class="station-weight mono">${weightText}</span>
-            <span class="station-pct mono">${pctText}</span>
-          </div>
-          <div class="mini-progress">
-            <div class="mini-progress-fill" style="width:${fillWidth}%; background:${st.color};"></div>
-          </div>
-        </div>
+        <button type="button" class="station-tab ${isSelected ? "selected" : ""}" style="--station-color:${st.color}" data-station-id="${st.id}">
+          ${onlineDot}
+          <span class="station-short">${this.escapeHtml(st.shortName)}</span>
+          <span class="station-tab-val mono">${weightText}</span>
+          <span class="station-tab-pct mono">${pctText}</span>
+          ${dripBadge}
+        </button>
       `;
     }).join("");
 
-    const addCardHtml = `
-      <div class="station-card station-add-card" id="card-quick-add-station">
-        <i data-lucide="plus-circle"></i>
-        <span style="font-size:0.79rem; font-weight:700;">Add / Configure Scale</span>
-        <span style="font-size:0.7rem;">Plot 2, Plot 3 &amp; more</span>
-      </div>
+    const addTabHtml = `
+      <button type="button" class="station-tab station-tab-add" id="card-quick-add-station" title="Add or configure Plot 2, Plot 3 &amp; more">
+        <i data-lucide="plus-circle" style="width:14px; height:14px;"></i>
+        <span>Add Plot</span>
+      </button>
     `;
 
-    container.innerHTML = cardsHtml + addCardHtml;
+    container.innerHTML = tabsHtml + addTabHtml;
 
-    container.querySelectorAll("[data-station-id]").forEach((card) => {
-      card.addEventListener("click", () => {
-        this.selectedStationId = card.dataset.stationId;
+    container.querySelectorAll("[data-station-id]").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        this.selectedStationId = tab.dataset.stationId;
         this.renderAll();
       });
     });

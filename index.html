@@ -23,38 +23,32 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=1.9.3">
+  <link rel="stylesheet" href="css/styles.css?v=1.9.4">
 </head>
 <body>
   <div class="app-shell">
-    <!-- Top Header -->
+    <!-- Top Header (Compact) -->
     <header class="top-bar">
       <div class="brand-wrap">
         <img src="assets/icon.svg" alt="CocoScale Icon" class="brand-icon">
         <div>
           <div class="brand-title">
             <span>KH CocoScale</span>
-            <span class="brand-tag">Load-Cell Telemetry</span>
-            <span class="version-badge mono" style="font-size:0.68rem; padding:0.15rem 0.45rem;">v1.9.3</span>
+            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.4</span>
           </div>
           <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
         </div>
       </div>
 
       <div class="header-controls">
-        <div id="sync-status-pill" class="sync-pill">
-          <span class="sync-dot"></span>
-          <span id="sync-status-text">Connecting...</span>
-        </div>
-
-        <button type="button" id="btn-sync-now" class="btn btn-primary" title="Fetch latest rows from Google Sheets">
+        <button type="button" id="btn-sync-now" class="btn btn-primary btn-sm" title="Fetch latest rows from Google Sheets">
           <i data-lucide="refresh-cw" id="icon-sync"></i>
-          <span>Sync Sheet</span>
+          <span>Sync</span>
         </button>
 
-        <button type="button" id="btn-force-reload" class="btn" style="border:1px solid rgba(255,255,255,0.18); font-size:0.75rem; padding:0.4rem 0.65rem;" title="Bypass browser cache and reload fresh app code">
+        <button type="button" id="btn-force-reload" class="btn btn-sm" style="border:1px solid rgba(255,255,255,0.18);" title="Bypass browser cache and reload fresh app code">
           <i data-lucide="rotate-ccw"></i>
-          <span>Reload App</span>
+          <span>Reload</span>
         </button>
       </div>
     </header>
@@ -627,7 +621,11 @@
           <div>
             <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
               <span style="font-weight:800; font-size:0.9rem; color:var(--text-primary);">KH CocoScale</span>
-              <span class="version-badge mono">App v1.9.3 · ESP32 FW v2.9</span>
+              <span class="version-badge mono">App v1.9.4 · ESP32 FW v2.9</span>
+              <div id="sync-status-pill" class="sync-pill" style="padding:0.2rem 0.55rem; font-size:0.71rem;">
+                <span class="sync-dot"></span>
+                <span id="sync-status-text">Connecting...</span>
+              </div>
               <span class="mono" style="font-size:0.72rem; color:var(--text-secondary);">Updated: Nov 2026</span>
             </div>
             <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.2rem;">
@@ -656,15 +654,15 @@
 
       <div class="footer-version-details">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.45rem;">
-          <div class="footer-version-title mono" style="margin-bottom:0;">Latest Update (v1.9.3 · Firmware v2.9)</div>
+          <div class="footer-version-title mono" style="margin-bottom:0;">Latest Update (v1.9.4 · Firmware v2.9)</div>
           <button type="button" id="btn-open-changelog" class="btn btn-sm" style="padding:0.25rem 0.65rem; font-size:0.72rem; border-color:rgba(45,212,191,0.35); color:#5eead4;">
             <i data-lucide="history" style="width:13px; height:13px;"></i>
             <span>Update History</span>
           </button>
         </div>
         <div class="changelog-item" style="max-width:100%;">
-          <span class="changelog-tag mono">v1.9.3 · FW v2.9</span>
-          <span>Added <b>Night Eco Mode (7:00 PM – 6:00 AM)</b>: automatically switches deep-sleep interval to <span class="mono">20m/30m</span> overnight when solar is off to cut Wi-Fi battery drain by 50–67%, while keeping fast daytime intervals.</span>
+          <span class="changelog-tag mono">v1.9.4</span>
+          <span>Refined <b>Compact Header &amp; Plot Tab Navigation</b>: streamlined top header (<span class="mono">Sync</span> / <span class="mono">Reload</span>), moved <span class="mono">LIVE SHEET</span> status badge to footer, and converted Scale Stations into a compact horizontal tab bar.</span>
         </div>
       </div>
 
@@ -1263,7 +1261,12 @@ function respond(obj, callback) {
 
       <div style="display:flex; flex-direction:column; gap:0.65rem; max-height:62vh; overflow-y:auto; padding-right:0.2rem;">
         <div class="changelog-item" style="background:rgba(45,212,191,0.07); border:1px solid rgba(45,212,191,0.28); border-radius:8px; padding:0.65rem 0.8rem;">
-          <span class="changelog-tag mono">v1.9.3 · FW v2.9 (Latest)</span>
+          <span class="changelog-tag mono">v1.9.4 (Latest)</span>
+          <span>Refined <b>Compact Header &amp; Plot Tab Navigation</b>: streamlined top header (<span class="mono">Sync</span> / <span class="mono">Reload</span>), moved <span class="mono">LIVE SHEET</span> status badge to footer, and converted Scale Stations into a compact horizontal tab bar.</span>
+        </div>
+
+        <div class="changelog-item" style="background:rgba(30,41,59,0.5); border:1px solid rgba(148,163,184,0.15); border-radius:8px; padding:0.65rem 0.8rem;">
+          <span class="changelog-tag mono">v1.9.3 · FW v2.9</span>
           <span>Added <b>Night Eco Mode (7:00 PM – 6:00 AM)</b>: automatically switches deep-sleep interval to <span class="mono">20m/30m</span> overnight when solar is off to cut Wi-Fi battery drain by 50–67%, while keeping fast daytime intervals.</span>
         </div>
 
@@ -1322,11 +1325,11 @@ function respond(obj, callback) {
   <!-- Toast Notification -->
   <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
 
-  <script src="js/config.js?v=1.9.3"></script>
-  <script src="js/moistureEngine.js?v=1.9.3"></script>
-  <script src="js/sheetsService.js?v=1.9.3"></script>
-  <script src="js/rainpointService.js?v=1.9.3"></script>
-  <script src="js/deviceService.js?v=1.9.3"></script>
-  <script src="js/app.js?v=1.9.3"></script>
+  <script src="js/config.js?v=1.9.4"></script>
+  <script src="js/moistureEngine.js?v=1.9.4"></script>
+  <script src="js/sheetsService.js?v=1.9.4"></script>
+  <script src="js/rainpointService.js?v=1.9.4"></script>
+  <script src="js/deviceService.js?v=1.9.4"></script>
+  <script src="js/app.js?v=1.9.4"></script>
 </body>
 </html>
