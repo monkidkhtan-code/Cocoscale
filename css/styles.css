@@ -927,10 +927,40 @@ html, body {
 .advisory-box.info { border-left-color: var(--accent-sky); }
 
 .quick-cal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+
+.quick-cal-actions .btn {
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.readout-meta-row {
   display: flex;
-  gap: 0.5rem;
   flex-wrap: wrap;
-  margin-top: 0.2rem;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  font-size: 0.72rem;
+}
+
+.readout-age-text {
+  color: var(--text-secondary);
+}
+
+.readout-countdown {
+  color: #38bdf8;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hero-advisory-compact {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.8rem;
 }
 
 /* 3-Parameter Drip Decision Card (Compact Single-Row Strip) */
@@ -1856,16 +1886,98 @@ input:focus, select:focus {
   .app-shell {
     padding: 0.65rem 0.75rem 2.5rem;
   }
+  .panel {
+    padding: 0.85rem 0.9rem;
+  }
+  .panel-header {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+  .panel-title {
+    font-size: 0.92rem;
+  }
+  .panel-subtitle {
+    font-size: 0.7rem;
+  }
+  .panel-header .status-chip {
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    padding: 0.16rem 0.45rem;
+  }
   .gauge-layout {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    text-align: center;
+    grid-template-columns: 112px 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    text-align: left;
+  }
+  .chili-canopy-wrap {
+    width: 118px;
+    height: 88px;
+    margin-bottom: -6px;
+  }
+  .bag-tank {
+    width: 102px;
+    height: 130px;
+  }
+  .bag-marker {
+    font-size: 0.52rem;
+    padding: 1px 3px 0 3px;
+  }
+  .scale-plinth {
+    width: 112px;
+  }
+  .scale-top-plate {
+    width: 108px;
+  }
+  .scale-loadcell-beam {
+    width: 88px;
+    height: 11px;
+  }
+  .scale-beam-label {
+    font-size: 0.46rem;
+  }
+  .scale-base-feet {
+    width: 104px;
+  }
+  .readout-main {
+    gap: 0.4rem;
+    min-width: 0;
   }
   .big-numbers {
-    justify-content: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+  .primary-kg {
+    font-size: 1.95rem;
+  }
+  .primary-kg .unit {
+    font-size: 0.86rem;
+  }
+  .secondary-pct {
+    font-size: 1.22rem;
+  }
+  .water-liters-line {
+    font-size: 0.73rem;
+    line-height: 1.35;
+  }
+  .readout-meta-row {
+    font-size: 0.66rem;
+    gap: 0.2rem 0.5rem;
+  }
+  .hero-advisory-compact {
+    margin-top: 0.6rem;
+    padding: 0.5rem 0.68rem;
+    font-size: 0.75rem;
   }
   .quick-cal-actions {
-    justify-content: center;
+    gap: 0.45rem;
+    margin-top: 0.5rem;
+  }
+  .quick-cal-actions .btn {
+    padding: 0.36rem 0.5rem;
+    font-size: 0.74rem;
   }
   .kpi-grid,
   .form-grid,
