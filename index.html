@@ -23,7 +23,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=1.9.6">
+  <link rel="stylesheet" href="css/styles.css?v=1.9.7">
 </head>
 <body>
   <div class="app-shell">
@@ -34,7 +34,7 @@
         <div>
           <div class="brand-title">
             <span>KH CocoScale</span>
-            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.6</span>
+            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.7</span>
           </div>
           <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
         </div>
@@ -77,6 +77,39 @@
         <span id="last-sync-clock" class="mono" style="font-size:0.73rem; color:var(--text-secondary);">--</span>
       </div>
       <div id="station-strip" class="station-strip"></div>
+    </section>
+
+    <!-- Compact Single-Row Live Drip Decision Advisory Bar (Above Chili Diagram) -->
+    <section id="drip-decision-card" class="drip-decision-card hold">
+      <div class="drip-decision-head">
+        <div class="drip-decision-badge">
+          <span id="drip-decision-badge-icon">🛑</span>
+          <span id="drip-decision-badge-text">HOLD DRIP</span>
+        </div>
+        <div id="drip-decision-summary" class="drip-decision-summary">
+          Evaluating...
+        </div>
+      </div>
+
+      <div class="drip-decision-rules">
+        <div id="drip-rule-weight" class="drip-rule-chip fail">
+          <span class="drip-rule-icon">✕</span>
+          <span class="drip-rule-title" style="display:none;">1. Dry</span>
+          <span id="drip-rule-weight-val" class="drip-rule-val mono">-- kg</span>
+        </div>
+
+        <div id="drip-rule-temp" class="drip-rule-chip fail">
+          <span class="drip-rule-icon">✕</span>
+          <span class="drip-rule-title" style="display:none;">2. Temp</span>
+          <span id="drip-rule-temp-val" class="drip-rule-val mono">-- °C</span>
+        </div>
+
+        <div id="drip-rule-light" class="drip-rule-chip fail">
+          <span class="drip-rule-icon">✕</span>
+          <span class="drip-rule-title" style="display:none;">3. Light</span>
+          <span id="drip-rule-light-val" class="drip-rule-val mono">-- Lx</span>
+        </div>
+      </div>
     </section>
 
     <!-- Selected Station Hero Grid -->
@@ -357,48 +390,6 @@
           <div>
             <div class="panel-title">Fertigation &amp; Dry-Back Intelligence</div>
             <div class="panel-subtitle">Exact gravimetric water loss (`1.00 kg = 1,000 mL` water)</div>
-          </div>
-        </div>
-
-        <!-- Live Drip Decision Advisory Banner (3 Core Rules: Dry-back, Temp > 28°C, Light > 500 Lx) -->
-        <div id="drip-decision-card" class="drip-decision-card hold">
-          <div class="drip-decision-head">
-            <div class="drip-decision-badge">
-              <span id="drip-decision-badge-icon">🛑</span>
-              <span id="drip-decision-badge-text">HOLD DRIP</span>
-            </div>
-            <div id="drip-decision-summary" class="drip-decision-summary">
-              Evaluating dry-back, temperature &amp; sunlight parameters...
-            </div>
-          </div>
-
-          <div class="drip-decision-rules">
-            <!-- Rule 1: Weight / Moisture Trigger -->
-            <div id="drip-rule-weight" class="drip-rule-chip fail">
-              <div class="drip-rule-top">
-                <span class="drip-rule-icon">✕</span>
-                <span class="drip-rule-title">1. Moisture Dry-Back</span>
-              </div>
-              <div id="drip-rule-weight-val" class="drip-rule-val mono">-- kg (Checking)</div>
-            </div>
-
-            <!-- Rule 2: Temperature > 28°C -->
-            <div id="drip-rule-temp" class="drip-rule-chip fail">
-              <div class="drip-rule-top">
-                <span class="drip-rule-icon">✕</span>
-                <span class="drip-rule-title">2. Temperature &gt; 28°C</span>
-              </div>
-              <div id="drip-rule-temp-val" class="drip-rule-val mono">-- °C</div>
-            </div>
-
-            <!-- Rule 3: Light > 500 Lux -->
-            <div id="drip-rule-light" class="drip-rule-chip fail">
-              <div class="drip-rule-top">
-                <span class="drip-rule-icon">✕</span>
-                <span class="drip-rule-title">3. Light &gt; 500 Lx</span>
-              </div>
-              <div id="drip-rule-light-val" class="drip-rule-val mono">-- Lux</div>
-            </div>
           </div>
         </div>
 
@@ -1325,11 +1316,11 @@ function respond(obj, callback) {
   <!-- Toast Notification -->
   <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
 
-  <script src="js/config.js?v=1.9.6"></script>
-  <script src="js/moistureEngine.js?v=1.9.6"></script>
-  <script src="js/sheetsService.js?v=1.9.6"></script>
-  <script src="js/rainpointService.js?v=1.9.6"></script>
-  <script src="js/deviceService.js?v=1.9.6"></script>
-  <script src="js/app.js?v=1.9.6"></script>
+  <script src="js/config.js?v=1.9.7"></script>
+  <script src="js/moistureEngine.js?v=1.9.7"></script>
+  <script src="js/sheetsService.js?v=1.9.7"></script>
+  <script src="js/rainpointService.js?v=1.9.7"></script>
+  <script src="js/deviceService.js?v=1.9.7"></script>
+  <script src="js/app.js?v=1.9.7"></script>
 </body>
 </html>
