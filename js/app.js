@@ -14,6 +14,8 @@ class CocoScaleApp {
     this.chartMode = this.config.chartPrefs?.mode || "weight"; // 'weight' | 'moisture' | 'compare'
     this.chartHours = Number.isFinite(Number(this.config.chartPrefs?.hours)) ? Number(this.config.chartPrefs.hours) : 24;
     this.chartSelectedDay = null; // null = Live rolling window; Date at local 00:00:00 = single-day view
+    const _now = new Date();
+    this.eventsSelectedDay = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate(), 0, 0, 0, 0);
     this.chartYMode = this.config.chartYScale?.mode || "adaptive"; // 'adaptive' | 'fixed'
     this.chartYMinKg = Number.isFinite(Number(this.config.chartYScale?.minKg)) ? Number(this.config.chartYScale.minKg) : 2.0;
     this.chartYMaxKg = Number.isFinite(Number(this.config.chartYScale?.maxKg)) ? Number(this.config.chartYScale.maxKg) : 9.0;
@@ -36,7 +38,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.28").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.29").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -241,6 +243,32 @@ class CocoScaleApp {
         this.chartSelectedDay = this.chartSelectedDay ? null : getLocalMidnight();
         this.syncChartToolbarUI();
         this.renderChart();
+      });
+    }
+
+    // Daily Irrigation Shots & Liquid Balance Day Navigation
+    const btnEvPrev = document.getElementById("btn-events-day-prev");
+    const btnEvLabel = document.getElementById("btn-events-day-label");
+    const btnEvNext = document.getElementById("btn-events-day-next");
+    if (btnEvPrev && btnEvLabel && btnEvNext) {
+      btnEvPrev.addEventListener("click", () => {
+        const d = new Date(this.eventsSelectedDay.getTime());
+        d.setDate(d.getDate() - 1);
+        this.eventsSelectedDay = d;
+        this.renderDetails();
+      });
+      btnEvNext.addEventListener("click", () => {
+        const today = getLocalMidnight();
+        const next = new Date(this.eventsSelectedDay.getTime());
+        next.setDate(next.getDate() + 1);
+        if (next.getTime() <= today.getTime()) {
+          this.eventsSelectedDay = next;
+          this.renderDetails();
+        }
+      });
+      btnEvLabel.addEventListener("click", () => {
+        this.eventsSelectedDay = getLocalMidnight();
+        this.renderDetails();
       });
     }
 
@@ -1797,20 +1825,77 @@ class CocoScaleApp {
     const badgeEl = document.getElementById("events-count-badge");
     const tbody = document.getElementById("log-table-body");
 
+    // Update Daily Navigator Header
+    const evDayLabelEl = document.getElementById("btn-events-day-label");
+    const evDayNextEl = document.getElementById("btn-events-day-next");
+    const evDaySubEl = document.getElementById("events-day-date-sub");
+    const inMlEl = document.getElementById("daily-liquid-in-ml");
+    const inSubEl = document.getElementById("daily-liquid-in-sub");
+    const outMlEl = document.getElementById("daily-liquid-out-ml");
+    const outSubEl = document.getElementById("daily-liquid-out-sub");
+
+    const now = new Date();
+    const todayStartMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+    const selStartMs = this.eventsSelectedDay ? this.eventsSelectedDay.getTime() : todayStartMs;
+    const selEndMs = selStartMs + 24 * 3600 * 1000 - 1;
+    const diffDays = Math.round((todayStartMs - selStartMs) / (24 * 3600 * 1000));
+    const selDateObj = new Date(selStartMs);
+
+    if (evDayLabelEl) {
+      evDayLabelEl.textContent = diffDays === 0
+        ? "Today"
+        : (diffDays === 1 ? "Yesterday" : selDateObj.toLocaleDateString("en-GB", { day: "numeric", month: "short" }));
+    }
+    if (evDaySubEl) {
+      evDaySubEl.textContent = selDateObj.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    }
+    if (evDayNextEl) {
+      evDayNextEl.classList.toggle("disabled", selStartMs >= todayStartMs);
+    }
+
     if (!analysis || !analysis.hasData) {
-      badgeEl.textContent = "0 events";
+      badgeEl.textContent = "0 shots";
+      if (inMlEl) inMlEl.textContent = "+0 mL";
+      if (inSubEl) inSubEl.textContent = "0.00 L total gain";
+      if (outMlEl) outMlEl.textContent = "-0 mL";
+      if (outSubEl) outSubEl.textContent = "0.00 L total loss";
       eventsContainer.innerHTML = `<div class="empty-state">No irrigation pulses detected yet.</div>`;
       tbody.innerHTML = `<tr><td colspan="5" class="empty-state">No telemetry rows loaded yet.</td></tr>`;
       return;
     }
 
-    const evs = analysis.irrigationEvents;
+    // Compute daily liquid IN (all positive deltas >= 15g) & Evap/Uptake OUT (all negative deltas <= -5g)
+    const allRows = analysis.enrichedRows || [];
+    let totalInMl = 0;
+    let totalOutMl = 0;
+    for (let i = 1; i < allRows.length; i++) {
+      const prev = allRows[i - 1];
+      const curr = allRows[i];
+      const t = curr.ts.getTime();
+      if (t < selStartMs || t > selEndMs) continue;
+      const deltaKg = curr.weightKg - prev.weightKg;
+      if (deltaKg >= 0.015) {
+        totalInMl += Math.round(deltaKg * 1000);
+      } else if (deltaKg <= -0.005) {
+        totalOutMl += Math.round(Math.abs(deltaKg) * 1000);
+      }
+    }
+
+    if (inMlEl) inMlEl.textContent = `+${totalInMl.toLocaleString()} mL`;
+    if (inSubEl) inSubEl.textContent = `${(totalInMl / 1000).toFixed(2)} L total gain`;
+    if (outMlEl) outMlEl.textContent = `-${totalOutMl.toLocaleString()} mL`;
+    if (outSubEl) outSubEl.textContent = `${(totalOutMl / 1000).toFixed(2)} L total loss`;
+
+    const evs = (analysis.irrigationEvents || []).filter((ev) => {
+      const t = ev.peakTs.getTime();
+      return t >= selStartMs && t <= selEndMs;
+    });
     badgeEl.textContent = `${evs.length} shot${evs.length === 1 ? "" : "s"}`;
 
     if (evs.length === 0) {
-      eventsContainer.innerHTML = `<div class="empty-state">No upward irrigation jumps (≥${st.calibration.irrigationJumpKg} kg) in current dataset.</div>`;
+      eventsContainer.innerHTML = `<div class="empty-state">No upward irrigation jumps (≥${st.calibration.irrigationJumpKg} kg) on ${evDayLabelEl?.textContent || "this day"}.</div>`;
     } else {
-      eventsContainer.innerHTML = evs.slice(0, 25).map((ev) => {
+      eventsContainer.innerHTML = evs.map((ev) => {
         const dtStr = ev.peakTs.toLocaleString([], {
           month: "short",
           day: "numeric",

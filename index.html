@@ -24,18 +24,18 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=1.9.28">
+  <link rel="stylesheet" href="css/styles.css?v=1.9.29">
 </head>
 <body>
   <div class="app-shell">
     <!-- Top Header (Compact) -->
     <header class="top-bar">
       <div class="brand-wrap">
-        <img src="assets/logo-mark.png?v=1.9.28" alt="KH CocoScale Logo" class="brand-icon">
+        <img src="assets/logo-mark.png?v=1.9.29" alt="KH CocoScale Logo" class="brand-icon">
         <div>
           <div class="brand-title">
             <span>KH CocoScale</span>
-            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.28</span>
+            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.29</span>
           </div>
           <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
         </div>
@@ -581,8 +581,31 @@
             <div class="panel-title">Auto-Detected Irrigation Shots</div>
             <div class="panel-subtitle">Detected from upward load-cell weight jumps</div>
           </div>
-          <span id="events-count-badge" class="status-chip tone-info mono">0 events</span>
+          <span id="events-count-badge" class="status-chip tone-info mono">0 shots</span>
         </div>
+
+        <div class="events-day-bar">
+          <div class="pill-group chart-day-nav" id="events-day-nav" title="Browse daily liquid balance &amp; shots">
+            <button type="button" id="btn-events-day-prev" class="pill-btn" title="Previous day">◀</button>
+            <button type="button" id="btn-events-day-label" class="pill-btn active mono" title="Jump to Today">Today</button>
+            <button type="button" id="btn-events-day-next" class="pill-btn disabled" title="Next day">▶</button>
+          </div>
+          <span id="events-day-date-sub" class="mono" style="font-size:0.72rem; color:var(--text-secondary);">--</span>
+        </div>
+
+        <div class="daily-balance-grid">
+          <div class="daily-balance-tile in">
+            <div class="daily-balance-lbl">💧 Total Liquid In (Rain + Fert.)</div>
+            <div id="daily-liquid-in-ml" class="daily-balance-val mono">+0 mL</div>
+            <div id="daily-liquid-in-sub" class="daily-balance-sub mono">0.00 L total gain</div>
+          </div>
+          <div class="daily-balance-tile out">
+            <div class="daily-balance-lbl">☀️ Evap. &amp; Plant Uptake</div>
+            <div id="daily-liquid-out-ml" class="daily-balance-val mono">-0 mL</div>
+            <div id="daily-liquid-out-sub" class="daily-balance-sub mono">0.00 L total loss</div>
+          </div>
+        </div>
+
         <div id="irrigation-events-list" class="event-list"></div>
       </div>
 
@@ -1331,11 +1354,11 @@ function respond(obj, callback) {
   <!-- Toast Notification -->
   <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
 
-  <script src="js/config.js?v=1.9.28"></script>
-  <script src="js/moistureEngine.js?v=1.9.28"></script>
-  <script src="js/sheetsService.js?v=1.9.28"></script>
-  <script src="js/rainpointService.js?v=1.9.28"></script>
-  <script src="js/deviceService.js?v=1.9.28"></script>
-  <script src="js/app.js?v=1.9.28"></script>
+  <script src="js/config.js?v=1.9.29"></script>
+  <script src="js/moistureEngine.js?v=1.9.29"></script>
+  <script src="js/sheetsService.js?v=1.9.29"></script>
+  <script src="js/rainpointService.js?v=1.9.29"></script>
+  <script src="js/deviceService.js?v=1.9.29"></script>
+  <script src="js/app.js?v=1.9.29"></script>
 </body>
 </html>
