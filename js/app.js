@@ -35,7 +35,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.7").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.8").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1098,12 +1098,12 @@ class CocoScaleApp {
     if (isDryBackReached) {
       ruleWeightEl.className = "drip-rule-chip pass";
       ruleWeightEl.querySelector(".drip-rule-icon").textContent = "✓";
-      valWeightEl.textContent = `${m.rawWeightKg.toFixed(2)}kg`;
+      valWeightEl.textContent = `Dry-back OK · ${m.rawWeightKg.toFixed(2)}kg`;
       ruleWeightEl.title = `Current ${m.rawWeightKg.toFixed(2)} kg has reached or dropped below irrigation trigger (${m.triggerRawKg.toFixed(2)} kg / ${m.triggerPct}%). Dry-back satisfied.`;
     } else {
       ruleWeightEl.className = "drip-rule-chip fail";
       ruleWeightEl.querySelector(".drip-rule-icon").textContent = "✕";
-      valWeightEl.textContent = `${m.rawWeightKg.toFixed(2)}kg`;
+      valWeightEl.textContent = `Saturated · ${m.rawWeightKg.toFixed(2)}kg`;
       ruleWeightEl.title = `Current ${m.rawWeightKg.toFixed(2)} kg is ${excessMl} mL above the irrigation trigger (${m.triggerRawKg.toFixed(2)} kg). Cocopeat still holds adequate moisture.`;
     }
 
@@ -1114,17 +1114,17 @@ class CocoScaleApp {
     if (temp === null || isNaN(temp)) {
       ruleTempEl.className = "drip-rule-chip fail";
       ruleTempEl.querySelector(".drip-rule-icon").textContent = "✕";
-      valTempEl.textContent = "--°C";
+      valTempEl.textContent = "No Temp";
       ruleTempEl.title = "Awaiting live temperature from RainPoint climate sensor.";
     } else if (isTempOk) {
       ruleTempEl.className = "drip-rule-chip pass";
       ruleTempEl.querySelector(".drip-rule-icon").textContent = "✓";
-      valTempEl.textContent = `${temp.toFixed(1)}°C`;
+      valTempEl.textContent = `Ideal Temp · ${temp.toFixed(1)}°C`;
       ruleTempEl.title = `Ambient temperature is ${temp.toFixed(1)}°C (>28°C). Chili root uptake and leaf transpiration are active.`;
     } else {
       ruleTempEl.className = "drip-rule-chip fail";
       ruleTempEl.querySelector(".drip-rule-icon").textContent = "✕";
-      valTempEl.textContent = `${temp.toFixed(1)}°C`;
+      valTempEl.textContent = `Cool Temp · ${temp.toFixed(1)}°C`;
       ruleTempEl.title = `Ambient temperature is ${temp.toFixed(1)}°C (≤28°C). Transpiration is low; irrigating now risks root suffocation.`;
     }
 
@@ -1135,17 +1135,17 @@ class CocoScaleApp {
     if (lux === null || isNaN(lux)) {
       ruleLightEl.className = "drip-rule-chip fail";
       ruleLightEl.querySelector(".drip-rule-icon").textContent = "✕";
-      valLightEl.textContent = "-- Lx";
+      valLightEl.textContent = "No Light";
       ruleLightEl.title = "Awaiting live light reading from RainPoint sensor.";
     } else if (isLightOk) {
       ruleLightEl.className = "drip-rule-chip pass";
       ruleLightEl.querySelector(".drip-rule-icon").textContent = "✓";
-      valLightEl.textContent = `${Math.round(lux).toLocaleString()} Lx`;
+      valLightEl.textContent = `Bright Sun · ${Math.round(lux).toLocaleString()} Lx`;
       ruleLightEl.title = `Solar radiation is ${Math.round(lux).toLocaleString()} Lux (>500 Lux). Stomata are open and photosynthesizing.`;
     } else {
       ruleLightEl.className = "drip-rule-chip fail";
       ruleLightEl.querySelector(".drip-rule-icon").textContent = "✕";
-      valLightEl.textContent = `${Math.round(lux).toLocaleString()} Lx`;
+      valLightEl.textContent = `Low Light · ${Math.round(lux).toLocaleString()} Lx`;
       ruleLightEl.title = `Solar radiation is ${Math.round(lux).toLocaleString()} Lux (≤500 Lux). Insufficient sunlight for active water uptake.`;
     }
 
