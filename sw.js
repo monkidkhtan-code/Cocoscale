@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kh-cocoscale-v1.9.19';
+const CACHE_NAME = 'kh-cocoscale-v1.9.20';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -9,7 +9,8 @@ const STATIC_ASSETS = [
   './js/rainpointService.js',
   './js/deviceService.js',
   './js/app.js',
-  './assets/icon.svg',
+  './assets/logo-mark.png',
+  './assets/favicon-32.png',
   './assets/icon-192.png',
   './assets/icon-512.png',
   './assets/apple-touch-icon.png',
