@@ -1121,12 +1121,21 @@ html, body {
   white-space: nowrap;
 }
 
+.fertigation-panel {
+  margin-bottom: 1rem;
+}
+
 /* KPI Grid */
 .kpi-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
-  margin-bottom: 0.85rem;
+}
+
+@media (max-width: 960px) {
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .kpi-tile {
