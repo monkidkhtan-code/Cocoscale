@@ -355,8 +355,8 @@ class DeviceService {
     }
 
     // Determine if charging is Solar vs USB
-    // Solar criteria STRICT requirement: RainPoint sensor MUST actively report bright outdoor sunlight (>= 1200 Lux)
-    const hasSunlightLux = rainpointLux !== null && rainpointLux >= 1200;
+    // Solar criteria: RainPoint sensor reports daytime outdoor light (>= 700 Lux)
+    const hasSunlightLux = rainpointLux !== null && rainpointLux >= 700;
 
     if (isRising) {
       if (hasSunlightLux) {
