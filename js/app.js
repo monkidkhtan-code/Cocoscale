@@ -38,7 +38,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.32").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.33").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -478,7 +478,12 @@ class CocoScaleApp {
 
     const lastMs = latestRow.ts.getTime();
     const intervalMs = intervalMin * 60 * 1000;
-    const nextTargetMs = lastMs + intervalMs;
+    // Align target to wall-clock boundary (:00, :10, :20, :30... for 10m; :00, :15, :30, :45 for 15m)
+    const lastDate = new Date(lastMs);
+    const midnightMs = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate(), 0, 0, 0, 0).getTime();
+    const elapsedInDay = lastMs - midnightMs;
+    const nextSlotOffset = (Math.floor(elapsedInDay / intervalMs) + 1) * intervalMs;
+    const nextTargetMs = midnightMs + nextSlotOffset;
     const nowMs = Date.now();
     const diffMs = nextTargetMs - nowMs;
 

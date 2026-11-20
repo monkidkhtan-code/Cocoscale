@@ -224,6 +224,23 @@ int getEffectiveIntervalMin() {
   return (int)cfgIntervalMin;
 }
 
+// Compute seconds until next wall-clock aligned boundary (e.g. :00, :10, :20, :30 for 10m; :00, :15, :30, :45 for 15m)
+uint64_t getSecondsUntilNextAlignedSlot(int effMin) {
+  int safeMin = max(1, effMin);
+  uint64_t fallbackSec = (uint64_t)safeMin * 60ULL;
+  time_t nowSec = time(nullptr);
+  if (nowSec < 1700000000UL) return fallbackSec; // NTP clock not synced yet
+
+  struct tm tmInfo;
+  localtime_r(&nowSec, &tmInfo);
+  long secIntoDay = (long)tmInfo.tm_hour * 3600L + (long)tmInfo.tm_min * 60L + (long)tmInfo.tm_sec;
+  long slotSec = (long)safeMin * 60L;
+  long remSec = secIntoDay % slotSec;
+  long waitSec = slotSec - remSec;
+  if (waitSec < 5L) waitSec += slotSec; // Avoid sub-5s immediate double-wake
+  return (uint64_t)waitSec;
+}
+
 void syncNtpClockIfNeeded() {
   setenv("TZ", "CST-8", 1);
   tzset();
@@ -461,8 +478,8 @@ float readStabilizedWeightKg(int samples) {
 // ============================================================================
 void enterUltraHardwareDeepSleep() {
   int effMin = max(1, getEffectiveIntervalMin());
-  uint64_t sleepSeconds = (uint64_t)effMin * 60ULL;
-  Serial.printf("[ULTRA DEEP SLEEP] Powering down HX711, LCD, Wi-Fi & CPU for %llu sec (%d min, nightEco=%s)...\n",
+  uint64_t sleepSeconds = getSecondsUntilNextAlignedSlot(effMin);
+  Serial.printf("[ULTRA DEEP SLEEP] Powering down HX711, LCD, Wi-Fi & CPU for %llu sec (clock-aligned %d min, nightEco=%s)...\n",
                 sleepSeconds, effMin, isNightEcoWindowActive() ? "ON" : "OFF");
 
   lcd.noBacklight();
@@ -1158,9 +1175,28 @@ void loop() {
     }
   }
 
-  // Queue scheduled Google Sheet weight upload
-  unsigned long logIntervalMs = (unsigned long)max(1, getEffectiveIntervalMin()) * 60UL * 1000UL;
-  if (!pendingSheetUpload && (now - lastLogTime >= logIntervalMs)) {
+  // Queue scheduled Google Sheet weight upload (clock-aligned when NTP is synced)
+  int effMin = max(1, getEffectiveIntervalMin());
+  unsigned long logIntervalMs = (unsigned long)effMin * 60UL * 1000UL;
+  bool shouldLogNow = false;
+  static long lastAlignedSlotKey = -1;
+  time_t nowEpoch = time(nullptr);
+  if (nowEpoch >= 1700000000UL) {
+    struct tm tmInfo;
+    localtime_r(&nowEpoch, &tmInfo);
+    long secIntoDay = (long)tmInfo.tm_hour * 3600L + (long)tmInfo.tm_min * 60L + (long)tmInfo.tm_sec;
+    long slotKey = ((long)tmInfo.tm_yday * 86400L + secIntoDay) / ((long)effMin * 60L);
+    if (lastAlignedSlotKey == -1) {
+      lastAlignedSlotKey = slotKey; // Initialize to current slot on boot
+    } else if (slotKey != lastAlignedSlotKey && (now - lastLogTime >= 15000UL)) {
+      lastAlignedSlotKey = slotKey;
+      shouldLogNow = true;
+    }
+  } else if (now - lastLogTime >= logIntervalMs) {
+    shouldLogNow = true;
+  }
+
+  if (!pendingSheetUpload && shouldLogNow) {
     lastLogTime = now;
     float cleanWeight = readStabilizedWeightKg(11);
     if (cfgPowerMode != "always_on" && millis() >= tempLightUntilMs) {
