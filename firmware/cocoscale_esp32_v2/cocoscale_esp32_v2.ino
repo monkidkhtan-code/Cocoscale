@@ -1,5 +1,5 @@
 /**
- * KH COCOSCALE — ESP32 FIRMWARE v2.4 (3-TIER BATTERY OPTIMIZER + <1s WAKE + ULTRA DEEP SLEEP)
+ * KH COCOSCALE — ESP32 FIRMWARE v2.10 (CLOCK-ALIGNED CAPTURE + 3-TIER BATTERY OPTIMIZER)
  * -------------------------------------------------------------------------------------------
  * Board: DOIT ESP32 DEVKIT V1 / ESP32-30P-CP2102-C (Arduino IDE 2.3.x)
  *
@@ -1091,7 +1091,7 @@ void setup() {
     lcdDisplayActive = true;
     lcdBacklightActive = true;
     lcd.setCursor(0, 0);
-    lcd.print("KH CocoScale 2.9");
+    lcd.print("KH CocoScale2.10");
     lcd.setCursor(0, 1);
     lcd.print("Connecting WiFi ");
   }
