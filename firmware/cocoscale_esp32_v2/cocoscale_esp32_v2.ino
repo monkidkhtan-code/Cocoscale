@@ -1,5 +1,5 @@
 /**
- * KH COCOSCALE — ESP32 FIRMWARE v2.13 (CLOCK-ALIGNED CAPTURE + DNS 8.8.8.8 FALLBACK)
+ * KH COCOSCALE — ESP32 FIRMWARE v2.14 (GPIO 34 BATT ADC + CLOCK-ALIGNED + DNS FALLBACK)
  * -------------------------------------------------------------------------------------------
  * Board: DOIT ESP32 DEVKIT V1 / ESP32-30P-CP2102-C (Arduino IDE 2.3.x)
  *
@@ -41,7 +41,7 @@
 // --- Station Identity (Change to "Plot2" / "Plot3" for Scales #2 & #3) ---
 const char* PLOT_ID    = "Plot1";
 const char* MDNS_HOST  = "cocoscale-plot1"; // Reachable at http://cocoscale-plot1.local/cmd
-const char* FW_VERSION = "2.13";
+const char* FW_VERSION = "2.14";
 
 // --- Fast Realtime Command Bridge (Firebase RTDB Singapore — ~80ms latency) ---
 const char* firebaseBaseUrl = "https://kh-agrifarm-default-rtdb.asia-southeast1.firebasedatabase.app/cocoscale_devices";
@@ -56,7 +56,7 @@ const int LCD_SDA_PIN       = 21;
 const int LCD_SCL_PIN       = 22;
 const int WAKE_TARE_BTN_PIN = 0;  // Built-in BOOT button (or external button to GND)
 const int ONBOARD_BLUE_LED  = 2;  // Driven LOW to save ~3mA battery
-const int BATT_VOLT_PIN     = 35; // 0-25V Voltage Sensor Module (S -> GPIO 35)
+const int BATT_VOLT_PIN     = 34; // 0-25V Voltage Sensor Module (S -> GPIO 34)
 
 // --- Battery & Power Source Telemetry ---
 // 0-25V sensor uses 30k + 7.5k divider (5:1 ratio).
@@ -1141,7 +1141,7 @@ void setup() {
     lcdDisplayActive = true;
     lcdBacklightActive = true;
     lcd.setCursor(0, 0);
-    lcd.print("KH CocoScale2.13");
+    lcd.print("KH CocoScale2.14");
     lcd.setCursor(0, 1);
     lcd.print("Connecting WiFi ");
   }
