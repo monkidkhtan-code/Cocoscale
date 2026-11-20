@@ -1,5 +1,5 @@
 /**
- * KH COCOSCALE — ESP32 FIRMWARE v2.10 (CLOCK-ALIGNED CAPTURE + 3-TIER BATTERY OPTIMIZER)
+ * KH COCOSCALE — ESP32 FIRMWARE v2.11 (CLOCK-ALIGNED CAPTURE + RELIABLE HTTPS SHEET UPLOAD)
  * -------------------------------------------------------------------------------------------
  * Board: DOIT ESP32 DEVKIT V1 / ESP32-30P-CP2102-C (Arduino IDE 2.3.x)
  *
@@ -41,7 +41,7 @@
 // --- Station Identity (Change to "Plot2" / "Plot3" for Scales #2 & #3) ---
 const char* PLOT_ID    = "Plot1";
 const char* MDNS_HOST  = "cocoscale-plot1"; // Reachable at http://cocoscale-plot1.local/cmd
-const char* FW_VERSION = "2.9";
+const char* FW_VERSION = "2.11";
 
 // --- Fast Realtime Command Bridge (Firebase RTDB Singapore — ~80ms latency) ---
 const char* firebaseBaseUrl = "https://kh-agrifarm-default-rtdb.asia-southeast1.firebasedatabase.app/cocoscale_devices";
@@ -875,14 +875,40 @@ bool uploadWeightToGoogleSheet(float weightKg) {
              + "&applied=" + buildAppliedTag()
              + "&weight=" + String(weightKg, 3);
 
-  HTTPClient sheetHttp;
-  sheetHttp.setTimeout(10000);
-  sheetHttp.begin(url);
-  sheetHttp.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  // Temporarily disable Wi-Fi modem sleep during 2-hop Google Apps Script HTTPS redirect
+  if (cfgPowerMode != "always_on") {
+    esp_wifi_set_ps(WIFI_PS_NONE);
+  }
 
-  int code = sheetHttp.GET();
+  int code = -1;
+  String resp = "";
+  for (int attempt = 1; attempt <= 2; attempt++) {
+    WiFiClientSecure sheetClient;
+    sheetClient.setInsecure();
+    sheetClient.setTimeout(15);
+
+    HTTPClient sheetHttp;
+    sheetHttp.setTimeout(15000);
+    sheetHttp.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    if (sheetHttp.begin(sheetClient, url)) {
+      code = sheetHttp.GET();
+      if (code > 0) {
+        resp = sheetHttp.getString();
+      }
+      sheetHttp.end();
+    }
+    sheetClient.stop();
+
+    if (code > 0) break;
+    Serial.printf("[SHEET RETRY] Attempt %d failed (HTTP %d), retrying...\n", attempt, code);
+    delay(800);
+  }
+
+  if (cfgPowerMode != "always_on") {
+    esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+  }
+
   if (code > 0) {
-    String resp = sheetHttp.getString();
     Serial.printf("[SHEET UPLOAD] %.3f kg -> HTTP %d\n", weightKg, code);
     if (resp.indexOf("\"ok\":true") >= 0 && !fbSyncedAtLeastOnce) {
       int newInt = (int)extractJsonLong(resp, "intervalMin", cfgIntervalMin);
@@ -891,12 +917,10 @@ bool uploadWeightToGoogleSheet(float weightKg) {
       long rTareId  = extractJsonLong(resp, "tareId", 0);
       parseAndStageConfig(newInt, newPow, newLcd, rTareId);
     }
-    sheetHttp.end();
     syncFirebaseDeviceNode(true);
     return true;
   } else {
     Serial.printf("[SHEET ERROR] HTTP %d\n", code);
-    sheetHttp.end();
     return false;
   }
 }
@@ -1091,7 +1115,7 @@ void setup() {
     lcdDisplayActive = true;
     lcdBacklightActive = true;
     lcd.setCursor(0, 0);
-    lcd.print("KH CocoScale2.10");
+    lcd.print("KH CocoScale2.11");
     lcd.setCursor(0, 1);
     lcd.print("Connecting WiFi ");
   }
