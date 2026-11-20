@@ -1,5 +1,5 @@
 /**
- * KH COCOSCALE — ESP32 FIRMWARE v2.12 (CLOCK-ALIGNED CAPTURE + SHEET HTTPS DIAGNOSTICS)
+ * KH COCOSCALE — ESP32 FIRMWARE v2.13 (CLOCK-ALIGNED CAPTURE + DNS 8.8.8.8 FALLBACK)
  * -------------------------------------------------------------------------------------------
  * Board: DOIT ESP32 DEVKIT V1 / ESP32-30P-CP2102-C (Arduino IDE 2.3.x)
  *
@@ -41,7 +41,7 @@
 // --- Station Identity (Change to "Plot2" / "Plot3" for Scales #2 & #3) ---
 const char* PLOT_ID    = "Plot1";
 const char* MDNS_HOST  = "cocoscale-plot1"; // Reachable at http://cocoscale-plot1.local/cmd
-const char* FW_VERSION = "2.12";
+const char* FW_VERSION = "2.13";
 
 // --- Fast Realtime Command Bridge (Firebase RTDB Singapore — ~80ms latency) ---
 const char* firebaseBaseUrl = "https://kh-agrifarm-default-rtdb.asia-southeast1.firebasedatabase.app/cocoscale_devices";
@@ -246,10 +246,18 @@ void syncNtpClockIfNeeded() {
   tzset();
   if (time(nullptr) >= 1700000000UL) return; // RTC already holds valid time across deep sleep
   if (WiFi.status() != WL_CONNECTED) return;
-  configTime(8 * 3600, 0, "pool.ntp.org", "time.google.com");
+  configTime(8 * 3600, 0, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
   unsigned long t0 = millis();
-  while (time(nullptr) < 1700000000UL && (millis() - t0 < 1500UL)) {
+  while (time(nullptr) < 1700000000UL && (millis() - t0 < 3500UL)) {
     delay(40);
+  }
+  time_t nowSec = time(nullptr);
+  if (nowSec >= 1700000000UL) {
+    struct tm tmInfo;
+    localtime_r(&nowSec, &tmInfo);
+    Serial.printf("[NTP] Clock synced: %02d:%02d:%02d\n", tmInfo.tm_hour, tmInfo.tm_min, tmInfo.tm_sec);
+  } else {
+    Serial.println("[NTP] Sync timeout (using fallback interval)");
   }
 }
 
@@ -883,6 +891,13 @@ bool uploadWeightToGoogleSheet(float weightKg) {
 
   IPAddress resolvedIp;
   bool dnsOk = WiFi.hostByName("script.google.com", resolvedIp);
+  if (!dnsOk || resolvedIp == IPAddress(0, 0, 0, 0)) {
+    Serial.printf("[DNS FIX] Router DNS (%s) returned %s -> switching to 8.8.8.8 / 1.1.1.1\n",
+                  WiFi.dnsIP().toString().c_str(), resolvedIp.toString().c_str());
+    WiFi.config(WiFi.localIP(), WiFi.gatewayIP(), WiFi.subnetMask(), IPAddress(8, 8, 8, 8), IPAddress(1, 1, 1, 1));
+    delay(150);
+    dnsOk = WiFi.hostByName("script.google.com", resolvedIp);
+  }
   Serial.printf("[SHEET] Heap=%u B | DNS script.google.com=%s (%s)\n",
                 ESP.getFreeHeap(), dnsOk ? "OK" : "FAIL", resolvedIp.toString().c_str());
 
@@ -1126,7 +1141,7 @@ void setup() {
     lcdDisplayActive = true;
     lcdBacklightActive = true;
     lcd.setCursor(0, 0);
-    lcd.print("KH CocoScale2.12");
+    lcd.print("KH CocoScale2.13");
     lcd.setCursor(0, 1);
     lcd.print("Connecting WiFi ");
   }
