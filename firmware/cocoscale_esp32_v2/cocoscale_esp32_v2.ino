@@ -1,5 +1,5 @@
 /**
- * KH COCOSCALE — ESP32 FIRMWARE v2.16 (FRESH TLS CLIENT + ZERO-DRIFT NTP + DNS FALLBACK)
+ * KH COCOSCALE — ESP32 FIRMWARE v2.17 (ALWAYS-ON 8.8.8.8 DNS + ZERO-DRIFT NTP + FRESH TLS)
  * -------------------------------------------------------------------------------------------
  * Board: DOIT ESP32 DEVKIT V1 / ESP32-30P-CP2102-C (Arduino IDE 2.3.x)
  *
@@ -41,7 +41,7 @@
 // --- Station Identity (Change to "Plot2" / "Plot3" for Scales #2 & #3) ---
 const char* PLOT_ID    = "Plot1";
 const char* MDNS_HOST  = "cocoscale-plot1"; // Reachable at http://cocoscale-plot1.local/cmd
-const char* FW_VERSION = "2.16";
+const char* FW_VERSION = "2.17";
 
 // --- Fast Realtime Command Bridge (Firebase RTDB Singapore — ~80ms latency) ---
 const char* firebaseBaseUrl = "https://kh-agrifarm-default-rtdb.asia-southeast1.firebasedatabase.app/cocoscale_devices";
@@ -1022,14 +1022,9 @@ void setupWiFiMulti(int maxAttempts) {
     Serial.print(" | IP: ");
     Serial.print(WiFi.localIP());
     Serial.printf(" | RSSI: %d dBm\n", WiFi.RSSI());
-    // Ensure DNS isn't returning 0.0.0.0 (so NTP & Google Sheet both resolve cleanly)
-    IPAddress testIp;
-    if (!WiFi.hostByName("script.google.com", testIp) || testIp == IPAddress(0, 0, 0, 0)) {
-      Serial.printf("[DNS FIX] Router DNS (%s) returned %s -> switching to 8.8.8.8 / 1.1.1.1\n",
-                    WiFi.dnsIP().toString().c_str(), testIp.toString().c_str());
-      WiFi.config(WiFi.localIP(), WiFi.gatewayIP(), WiFi.subnetMask(), IPAddress(8, 8, 8, 8), IPAddress(1, 1, 1, 1));
-      delay(120);
-    }
+    // Always use reliable 8.8.8.8 / 1.1.1.1 DNS so script.google.com, script.googleusercontent.com (302 hop), & NTP never hit router 0.0.0.0 DNS bugs
+    WiFi.config(WiFi.localIP(), WiFi.gatewayIP(), WiFi.subnetMask(), IPAddress(8, 8, 8, 8), IPAddress(1, 1, 1, 1));
+    delay(80);
     if (MDNS.begin(MDNS_HOST)) {
       Serial.printf("[mDNS] http://%s.local/cmd active\n", MDNS_HOST);
     }
@@ -1155,7 +1150,7 @@ void setup() {
     lcdDisplayActive = true;
     lcdBacklightActive = true;
     lcd.setCursor(0, 0);
-    lcd.print("KH CocoScale2.16");
+    lcd.print("KH CocoScale2.17");
     lcd.setCursor(0, 1);
     lcd.print("Connecting WiFi ");
   }
