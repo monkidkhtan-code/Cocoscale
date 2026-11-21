@@ -38,7 +38,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.38").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.39").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -483,7 +483,11 @@ class CocoScaleApp {
     const midnightMs = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate(), 0, 0, 0, 0).getTime();
     const elapsedInDay = lastMs - midnightMs;
     const nextSlotOffset = (Math.floor(elapsedInDay / intervalMs) + 1) * intervalMs;
-    const nextTargetMs = midnightMs + nextSlotOffset;
+    let nextTargetMs = midnightMs + nextSlotOffset;
+    // If reading landed slightly early before the boundary (e.g. 14:49:55 for 14:50 slot), advance to the following slot
+    if (nextTargetMs - lastMs < Math.min(intervalMs * 0.5, 180000)) {
+      nextTargetMs += intervalMs;
+    }
     const nowMs = Date.now();
     const diffMs = nextTargetMs - nowMs;
 
