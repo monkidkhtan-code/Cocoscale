@@ -1,5 +1,5 @@
 /**
- * KH COCOSCALE — ESP32 FIRMWARE v2.15 (ZERO-DRIFT NTP RE-SYNC + GPIO 34 + CLOCK-ALIGNED)
+ * KH COCOSCALE — ESP32 FIRMWARE v2.16 (FRESH TLS CLIENT + ZERO-DRIFT NTP + DNS FALLBACK)
  * -------------------------------------------------------------------------------------------
  * Board: DOIT ESP32 DEVKIT V1 / ESP32-30P-CP2102-C (Arduino IDE 2.3.x)
  *
@@ -41,7 +41,7 @@
 // --- Station Identity (Change to "Plot2" / "Plot3" for Scales #2 & #3) ---
 const char* PLOT_ID    = "Plot1";
 const char* MDNS_HOST  = "cocoscale-plot1"; // Reachable at http://cocoscale-plot1.local/cmd
-const char* FW_VERSION = "2.15";
+const char* FW_VERSION = "2.16";
 
 // --- Fast Realtime Command Bridge (Firebase RTDB Singapore — ~80ms latency) ---
 const char* firebaseBaseUrl = "https://kh-agrifarm-default-rtdb.asia-southeast1.firebasedatabase.app/cocoscale_devices";
@@ -910,14 +910,14 @@ bool uploadWeightToGoogleSheet(float weightKg) {
   int code = -1;
   String resp = "";
   for (int attempt = 1; attempt <= 2; attempt++) {
-    fbClient.stop();
-    fbClient.setInsecure();
-    fbClient.setTimeout(15);
+    WiFiClientSecure sheetClient;
+    sheetClient.setInsecure();
+    sheetClient.setTimeout(15);
 
     HTTPClient sheetHttp;
     sheetHttp.setTimeout(15000);
     sheetHttp.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-    if (sheetHttp.begin(fbClient, url)) {
+    if (sheetHttp.begin(sheetClient, url)) {
       code = sheetHttp.GET();
       if (code > 0) {
         resp = sheetHttp.getString();
@@ -929,10 +929,10 @@ bool uploadWeightToGoogleSheet(float weightKg) {
     } else {
       Serial.printf("[SHEET RETRY] Attempt %d: sheetHttp.begin() returned false\n", attempt);
     }
-    fbClient.stop();
+    sheetClient.stop();
 
     if (code > 0) break;
-    delay(800);
+    delay(1200);
   }
 
   WiFi.setSleep(true);
@@ -1155,7 +1155,7 @@ void setup() {
     lcdDisplayActive = true;
     lcdBacklightActive = true;
     lcd.setCursor(0, 0);
-    lcd.print("KH CocoScale2.15");
+    lcd.print("KH CocoScale2.16");
     lcd.setCursor(0, 1);
     lcd.print("Connecting WiFi ");
   }
