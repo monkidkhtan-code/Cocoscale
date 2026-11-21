@@ -1,5 +1,5 @@
 /**
- * KH COCOSCALE — ESP32 FIRMWARE v2.14 (GPIO 34 BATT ADC + CLOCK-ALIGNED + DNS FALLBACK)
+ * KH COCOSCALE — ESP32 FIRMWARE v2.15 (ZERO-DRIFT NTP RE-SYNC + GPIO 34 + CLOCK-ALIGNED)
  * -------------------------------------------------------------------------------------------
  * Board: DOIT ESP32 DEVKIT V1 / ESP32-30P-CP2102-C (Arduino IDE 2.3.x)
  *
@@ -41,7 +41,7 @@
 // --- Station Identity (Change to "Plot2" / "Plot3" for Scales #2 & #3) ---
 const char* PLOT_ID    = "Plot1";
 const char* MDNS_HOST  = "cocoscale-plot1"; // Reachable at http://cocoscale-plot1.local/cmd
-const char* FW_VERSION = "2.14";
+const char* FW_VERSION = "2.15";
 
 // --- Fast Realtime Command Bridge (Firebase RTDB Singapore — ~80ms latency) ---
 const char* firebaseBaseUrl = "https://kh-agrifarm-default-rtdb.asia-southeast1.firebasedatabase.app/cocoscale_devices";
@@ -244,12 +244,18 @@ uint64_t getSecondsUntilNextAlignedSlot(int effMin) {
 void syncNtpClockIfNeeded() {
   setenv("TZ", "CST-8", 1);
   tzset();
-  if (time(nullptr) >= 1700000000UL) return; // RTC already holds valid time across deep sleep
   if (WiFi.status() != WL_CONNECTED) return;
+
+  // Always trigger SNTP refresh on every wake to cancel ESP32 150kHz RC RTC drift (~11s/10min)
   configTime(8 * 3600, 0, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
-  unsigned long t0 = millis();
-  while (time(nullptr) < 1700000000UL && (millis() - t0 < 3500UL)) {
-    delay(40);
+  if (time(nullptr) < 1700000000UL) {
+    unsigned long t0 = millis();
+    while (time(nullptr) < 1700000000UL && (millis() - t0 < 3500UL)) {
+      delay(40);
+    }
+  } else {
+    // Brief wait so background SNTP packet arrives before deep sleep calculation
+    delay(250);
   }
   time_t nowSec = time(nullptr);
   if (nowSec >= 1700000000UL) {
@@ -1016,6 +1022,14 @@ void setupWiFiMulti(int maxAttempts) {
     Serial.print(" | IP: ");
     Serial.print(WiFi.localIP());
     Serial.printf(" | RSSI: %d dBm\n", WiFi.RSSI());
+    // Ensure DNS isn't returning 0.0.0.0 (so NTP & Google Sheet both resolve cleanly)
+    IPAddress testIp;
+    if (!WiFi.hostByName("script.google.com", testIp) || testIp == IPAddress(0, 0, 0, 0)) {
+      Serial.printf("[DNS FIX] Router DNS (%s) returned %s -> switching to 8.8.8.8 / 1.1.1.1\n",
+                    WiFi.dnsIP().toString().c_str(), testIp.toString().c_str());
+      WiFi.config(WiFi.localIP(), WiFi.gatewayIP(), WiFi.subnetMask(), IPAddress(8, 8, 8, 8), IPAddress(1, 1, 1, 1));
+      delay(120);
+    }
     if (MDNS.begin(MDNS_HOST)) {
       Serial.printf("[mDNS] http://%s.local/cmd active\n", MDNS_HOST);
     }
@@ -1141,7 +1155,7 @@ void setup() {
     lcdDisplayActive = true;
     lcdBacklightActive = true;
     lcd.setCursor(0, 0);
-    lcd.print("KH CocoScale2.14");
+    lcd.print("KH CocoScale2.15");
     lcd.setCursor(0, 1);
     lcd.print("Connecting WiFi ");
   }
