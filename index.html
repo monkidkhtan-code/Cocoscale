@@ -24,18 +24,18 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=1.9.53">
+  <link rel="stylesheet" href="css/styles.css?v=1.9.54">
 </head>
 <body>
   <div class="app-shell">
     <!-- Top Header (Compact) -->
     <header class="top-bar">
       <div class="brand-wrap">
-        <img src="assets/logo-mark.png?v=1.9.53" alt="KH CocoScale Logo" class="brand-icon">
+        <img src="assets/logo-mark.png?v=1.9.54" alt="KH CocoScale Logo" class="brand-icon">
         <div>
           <div class="brand-title">
             <span>KH CocoScale</span>
-            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.53</span>
+            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.54</span>
           </div>
           <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
         </div>
@@ -698,7 +698,7 @@
           <div>
             <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
               <span style="font-weight:800; font-size:0.9rem; color:var(--text-primary);">KH CocoScale</span>
-              <span class="version-badge mono">App v1.9.53 · ESP32 FW v2.17</span>
+              <span class="version-badge mono">App v1.9.54 · ESP32 FW v2.17</span>
               <div id="sync-status-pill" class="sync-pill" style="padding:0.2rem 0.55rem; font-size:0.71rem;">
                 <span class="sync-dot"></span>
                 <span id="sync-status-text">Connecting...</span>
@@ -808,10 +808,16 @@
             <span class="form-hint" id="cal-crit-hint">High EC / wilting alert floor.</span>
           </div>
 
-          <div class="form-group full">
+          <div class="form-group">
             <label for="cal-jump-kg">Minimum Weight Jump to Detect Irrigation Shot (kg)</label>
             <input type="number" id="cal-jump-kg" step="0.01" min="0.05" max="5" required>
             <span class="form-hint">Default 0.15 kg (150 mL) filters out wind vibration on chili canopy.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="cal-morning-max-kg">Morning Dry-Back Max Weight (Before 9 AM) (kg)</label>
+            <input type="number" id="cal-morning-max-kg" step="0.05" min="0.5" max="30" required>
+            <span class="form-hint">Before 9:00 AM, drip stays held if weight is above this value (adjust as tree grows).</span>
           </div>
         </div>
 
@@ -1402,11 +1408,11 @@ function respond(obj, callback) {
   <!-- Toast Notification -->
   <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
 
-  <script src="js/config.js?v=1.9.53"></script>
-  <script src="js/moistureEngine.js?v=1.9.53"></script>
-  <script src="js/sheetsService.js?v=1.9.53"></script>
-  <script src="js/rainpointService.js?v=1.9.53"></script>
-  <script src="js/deviceService.js?v=1.9.53"></script>
-  <script src="js/app.js?v=1.9.53"></script>
+  <script src="js/config.js?v=1.9.54"></script>
+  <script src="js/moistureEngine.js?v=1.9.54"></script>
+  <script src="js/sheetsService.js?v=1.9.54"></script>
+  <script src="js/rainpointService.js?v=1.9.54"></script>
+  <script src="js/deviceService.js?v=1.9.54"></script>
+  <script src="js/app.js?v=1.9.54"></script>
 </body>
 </html>

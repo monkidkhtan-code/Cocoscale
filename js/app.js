@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.53").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.54").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1325,16 +1325,17 @@ class CocoScaleApp {
     let weightHoldReason = "";
 
     if (hr < 9) {
-      if (m.rawWeightKg <= 5.10) {
+      const morningMaxKg = (Number(cal.morningDryBackMaxKg) > 0) ? Number(cal.morningDryBackMaxKg) : 5.10;
+      if (m.rawWeightKg <= morningMaxKg) {
         isDryBackReached = true;
         weightChipLbl = "🌱 Morning OK";
-        weightChipTitle = `Morning weight ${m.rawWeightKg.toFixed(2)} kg is ≤ 5.10 kg threshold.`;
+        weightChipTitle = `Morning weight ${m.rawWeightKg.toFixed(2)} kg is ≤ ${morningMaxKg.toFixed(2)} kg threshold.`;
       } else {
         isDryBackReached = false;
         weightChipLbl = "💧 Morning Hold";
-        const diffMl = Math.round((m.rawWeightKg - 5.10) * 1000);
-        weightChipTitle = `Morning dry-back hold before 9:00 AM (${m.rawWeightKg.toFixed(2)} kg > 5.10 kg, +${diffMl} mL).`;
-        weightHoldReason = `Morning dry-back before 9 AM (${m.rawWeightKg.toFixed(2)} kg > 5.10 kg)`;
+        const diffMl = Math.round((m.rawWeightKg - morningMaxKg) * 1000);
+        weightChipTitle = `Morning dry-back hold before 9:00 AM (${m.rawWeightKg.toFixed(2)} kg > ${morningMaxKg.toFixed(2)} kg, +${diffMl} mL).`;
+        weightHoldReason = `Morning dry-back before 9 AM (${m.rawWeightKg.toFixed(2)} kg > ${morningMaxKg.toFixed(2)} kg)`;
       }
     } else if (hr < 18) {
       if (m.rawWeightKg >= m.fieldCapacityRawKg) {
@@ -2477,6 +2478,8 @@ class CocoScaleApp {
     document.getElementById("cal-trig-pct").value = cal.irrigateTriggerPct;
     document.getElementById("cal-crit-pct").value = cal.criticalFloorPct;
     document.getElementById("cal-jump-kg").value = cal.irrigationJumpKg || 0.15;
+    const morningMaxInput = document.getElementById("cal-morning-max-kg");
+    if (morningMaxInput) morningMaxInput.value = (Number(cal.morningDryBackMaxKg) > 0) ? Number(cal.morningDryBackMaxKg) : 5.10;
 
     // Load-cell hardware calibration controls
     const readingInput = document.getElementById("cal-scale-reading-input");
@@ -2728,6 +2731,7 @@ class CocoScaleApp {
       irrigateTriggerPct: parseFloat(document.getElementById("cal-trig-pct").value) || 70,
       criticalFloorPct: parseFloat(document.getElementById("cal-crit-pct").value) || 50,
       irrigationJumpKg: parseFloat(document.getElementById("cal-jump-kg").value) || 0.15,
+      morningDryBackMaxKg: parseFloat(document.getElementById("cal-morning-max-kg")?.value) || 5.10,
       scaleMultiplier: (!isNaN(mult) && mult > 0) ? Number(mult.toFixed(4)) : 1.0,
       scaleOffset: !isNaN(offset) ? Number(offset.toFixed(3)) : 0.0
     };
