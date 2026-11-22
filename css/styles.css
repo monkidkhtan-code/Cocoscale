@@ -1317,14 +1317,22 @@ html, body {
 }
 
 .chart-6pm-input {
-  width: 44px;
+  width: 60px;
   text-align: center;
   background: transparent;
   border: none;
   color: #f8fafc;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   font-weight: 800;
-  padding: 0.1rem 0;
+  padding: 0.22rem 0.25rem !important;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.chart-6pm-input::-webkit-inner-spin-button,
+.chart-6pm-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .chart-6pm-input:focus {

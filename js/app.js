@@ -42,7 +42,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.43").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.44").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1489,7 +1489,7 @@ class CocoScaleApp {
 
       const targetMoisturePct = 100 - targetDryBackPct;
       const waterCapKg = Math.max(0.1, refM.waterCapacityKg);
-      const tareKg = refM.effectiveDryKg;
+      const tareKg = refM.fieldCapacityRawKg - waterCapKg;
       const target6PmKg = tareKg + waterCapKg * (targetMoisturePct / 100);
       if (targetKgEl) targetKgEl.textContent = `(${target6PmKg.toFixed(2)} kg / ${targetMoisturePct}% moist.)`;
 
