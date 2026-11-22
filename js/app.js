@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.63").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.64").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1816,140 +1816,149 @@ class CocoScaleApp {
         const rateKgPerHr = usedFallback ? 0.085 : rawRateMl / 1000;
         const rateLabel = `${Math.round(rateKgPerHr * 1000)} mL/hr${usedFallback ? " est." : ""}`;
 
-        if (latestMs < target6PmMs) {
-          const projStats6Pm = this.integrateDryBackStats(latestMs, target6PmMs, rateKgPerHr, st.id);
-          const proj6PmKg = Math.max(tareKg, latestRow.weightKg - projStats6Pm.meanKg);
-          const proj6PmLowKg = Math.max(tareKg, proj6PmKg - projStats6Pm.stdKg);
-          const proj6PmHighKg = Math.min(refM.fieldCapacityRawKg, proj6PmKg + projStats6Pm.stdKg);
-          const proj6PmMoistPct = Math.max(0, Math.min(100, ((proj6PmKg - tareKg) / waterCapKg) * 100));
-          const proj6PmDryBackPct = 100 - proj6PmMoistPct;
+        const toChartVal = (kg) => isWeight ? kg : Math.max(0, Math.min(100, ((kg - tareKg) / waterCapKg) * 100));
+        const stepMs = 15 * 60 * 1000;
+        const isBefore6Pm = latestMs < target6PmMs;
+        const projTargetMs = isBefore6Pm ? target6PmMs : Math.max(target7PmMs, latestMs + 2 * 3600000);
+        const projTailEndMs = isBefore6Pm ? target7PmMs : projTargetMs;
 
-          const toChartVal = (kg) => isWeight ? kg : Math.max(0, Math.min(100, ((kg - tareKg) / waterCapKg) * 100));
+        const projStatsTarget = this.integrateDryBackStats(latestMs, projTargetMs, rateKgPerHr, st.id);
+        const projTargetKg = Math.max(tareKg, latestRow.weightKg - projStatsTarget.meanKg);
+        const projTargetLowKg = Math.max(tareKg, projTargetKg - projStatsTarget.stdKg);
+        const projTargetHighKg = Math.min(refM.fieldCapacityRawKg, projTargetKg + projStatsTarget.stdKg);
+        const projTargetMoistPct = Math.max(0, Math.min(100, ((projTargetKg - tareKg) / waterCapKg) * 100));
+        const projTargetDryBackPct = 100 - projTargetMoistPct;
 
-          // Build solar + learned empirical curve every 15m from now -> 18:00 (dot) -> 19:00 (flat dusk tail) + 68% probability cone
-          const stepMs = 15 * 60 * 1000;
-          const projPts = [];
-          const projUpperPts = [];
-          const projLowerPts = [];
-          const projRadii = [];
+        // Build solar + learned empirical curve every 15m from now -> target dot -> dusk/evening tail + 68% probability cone
+        const projPts = [];
+        const projUpperPts = [];
+        const projLowerPts = [];
+        const projRadii = [];
 
-          const pushProjStep = (t, isTargetDot = false) => {
-            const s = this.integrateDryBackStats(latestMs, t, rateKgPerHr, st.id);
-            const midKg = Math.max(tareKg, latestRow.weightKg - s.meanKg);
-            const hiKg = Math.min(refM.fieldCapacityRawKg, midKg + s.stdKg);
-            const loKg = Math.max(tareKg, midKg - s.stdKg);
-            projPts.push({ x: t, y: toChartVal(midKg) });
-            projUpperPts.push({ x: t, y: toChartVal(hiKg) });
-            projLowerPts.push({ x: t, y: toChartVal(loKg) });
-            projRadii.push(isTargetDot ? 5 : 0);
-          };
+        const pushProjStep = (t, isTargetDot = false) => {
+          const s = this.integrateDryBackStats(latestMs, t, rateKgPerHr, st.id);
+          const midKg = Math.max(tareKg, latestRow.weightKg - s.meanKg);
+          const hiKg = Math.min(refM.fieldCapacityRawKg, midKg + s.stdKg);
+          const loKg = Math.max(tareKg, midKg - s.stdKg);
+          projPts.push({ x: t, y: toChartVal(midKg) });
+          projUpperPts.push({ x: t, y: toChartVal(hiKg) });
+          projLowerPts.push({ x: t, y: toChartVal(loKg) });
+          projRadii.push(isTargetDot ? 5 : 0);
+        };
 
-          for (let t = latestMs; t < target6PmMs; t += stepMs) pushProjStep(t, false);
-          pushProjStep(target6PmMs, true);
-          for (let t = target6PmMs + stepMs; t <= target7PmMs; t += stepMs) pushProjStep(t, false);
+        for (let t = latestMs; t < projTargetMs; t += stepMs) pushProjStep(t, false);
+        pushProjStep(projTargetMs, true);
+        for (let t = projTargetMs + stepMs; t <= projTailEndMs; t += stepMs) pushProjStep(t, false);
 
-          projEndpointInfo = {
-            xMs: target6PmMs,
-            yVal: toChartVal(proj6PmKg),
-            label: isWeight ? `18:00 · ${proj6PmKg.toFixed(2)} kg` : `18:00 · ${proj6PmMoistPct.toFixed(0)}%`,
-            color: "#22d3ee"
-          };
+        const targetDt = new Date(projTargetMs);
+        const targetTimeStr = isBefore6Pm
+          ? "18:00"
+          : `${String(targetDt.getHours()).padStart(2, "0")}:${String(targetDt.getMinutes()).padStart(2, "0")}`;
 
-          // Subtle 68% Probability Cone around Projected Dry-Back
-          datasets.push({
-            label: "Proj Upper (68% Prob.)",
-            data: projUpperPts,
-            borderColor: "transparent",
-            pointRadius: 0,
-            pointHoverRadius: 0,
-            fill: false,
-            tension: 0.25,
-            yAxisID: "y",
-            order: 2
-          });
-          datasets.push({
-            label: "Proj Lower (68% Prob.)",
-            data: projLowerPts,
-            borderColor: "transparent",
-            backgroundColor: "rgba(34, 211, 238, 0.11)",
-            pointRadius: 0,
-            pointHoverRadius: 0,
-            fill: "-1",
-            tension: 0.25,
-            yAxisID: "y",
-            order: 2
-          });
+        projEndpointInfo = {
+          xMs: projTargetMs,
+          yVal: toChartVal(projTargetKg),
+          label: isWeight ? `${targetTimeStr} · ${projTargetKg.toFixed(2)} kg` : `${targetTimeStr} · ${projTargetMoistPct.toFixed(0)}%`,
+          color: "#22d3ee"
+        };
 
-          datasets.push({
-            label: "Projected Dry-Back (→ 6PM)",
-            data: projPts,
-            borderColor: "#22d3ee",
-            borderDash: [6, 4],
-            borderWidth: 2,
-            pointRadius: projRadii,
-            pointHoverRadius: 5,
-            pointBackgroundColor: "#22d3ee",
-            fill: false,
-            tension: 0.25,
-            yAxisID: "y",
-            order: 0
-          });
+        // Subtle 68% Probability Cone around Projected Dry-Back
+        datasets.push({
+          label: "Proj Upper (68% Prob.)",
+          data: projUpperPts,
+          borderColor: "transparent",
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false,
+          tension: 0.25,
+          yAxisID: "y",
+          order: 2
+        });
+        datasets.push({
+          label: "Proj Lower (68% Prob.)",
+          data: projLowerPts,
+          borderColor: "transparent",
+          backgroundColor: "rgba(34, 211, 238, 0.11)",
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: "-1",
+          tension: 0.25,
+          yAxisID: "y",
+          order: 2
+        });
 
-          // Backward solar + learned Stop-Drip Cutoff curve from 18:00 target weight (bending flat after 17:00 -> 19:00)
-          const morning7AmMs = new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate(), 7, 0, 0, 0).getTime();
-          const cutoffStartMs = Math.max(morning7AmMs, latestMs - 3 * 3600000);
-          const cutoffPts = [];
-          const cutoffRadii = [];
-          for (let t = cutoffStartMs; t < target6PmMs; t += stepMs) {
-            const k = target6PmKg + this.integrateDryBackKg(t, target6PmMs, rateKgPerHr, st.id);
-            cutoffPts.push({ x: t, y: toChartVal(k) });
-            cutoffRadii.push(0);
-          }
-          cutoffPts.push({ x: target6PmMs, y: isWeight ? target6PmKg : targetMoisturePct });
-          cutoffRadii.push(4.5);
-          for (let t = target6PmMs + stepMs; t <= target7PmMs; t += stepMs) {
-            const k = Math.max(tareKg, target6PmKg - this.integrateDryBackKg(target6PmMs, t, rateKgPerHr, st.id));
-            cutoffPts.push({ x: t, y: toChartVal(k) });
-            cutoffRadii.push(0);
-          }
+        datasets.push({
+          label: isBefore6Pm ? "Projected Dry-Back (→ 6PM)" : "Projected Dry-Back (+2H)",
+          data: projPts,
+          borderColor: "#22d3ee",
+          borderDash: [6, 4],
+          borderWidth: 2,
+          pointRadius: projRadii,
+          pointHoverRadius: 5,
+          pointBackgroundColor: "#22d3ee",
+          fill: false,
+          tension: 0.25,
+          yAxisID: "y",
+          order: 0
+        });
 
-          datasets.push({
-            label: "6PM Stop-Drip Cutoff",
-            data: cutoffPts,
-            borderColor: "#c084fc",
-            borderDash: [4, 4],
-            borderWidth: 1.8,
-            pointRadius: cutoffRadii,
-            pointHoverRadius: 5,
-            pointBackgroundColor: "#c084fc",
-            fill: false,
-            tension: 0.25,
-            yAxisID: "y",
-            order: 0
-          });
+        // Backward solar + learned Stop-Drip Cutoff curve through 18:00 target (stays visible after 6PM for comparison)
+        const morning7AmMs = new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate(), 7, 0, 0, 0).getTime();
+        const cutoffStartMs = Math.max(morning7AmMs, Math.min(latestMs, target6PmMs) - 3 * 3600000);
+        const cutoffEndMs = Math.max(target7PmMs, projTailEndMs);
+        const cutoffPts = [];
+        const cutoffRadii = [];
+        for (let t = cutoffStartMs; t < target6PmMs; t += stepMs) {
+          const k = target6PmKg + this.integrateDryBackKg(t, target6PmMs, rateKgPerHr, st.id);
+          cutoffPts.push({ x: t, y: toChartVal(k) });
+          cutoffRadii.push(0);
+        }
+        cutoffPts.push({ x: target6PmMs, y: isWeight ? target6PmKg : targetMoisturePct });
+        cutoffRadii.push(4.5);
+        for (let t = target6PmMs + stepMs; t <= cutoffEndMs; t += stepMs) {
+          const k = Math.max(tareKg, target6PmKg - this.integrateDryBackKg(target6PmMs, t, rateKgPerHr, st.id));
+          cutoffPts.push({ x: t, y: toChartVal(k) });
+          cutoffRadii.push(0);
+        }
 
-          // Reserve future X-axis space through dusk (19:15) so the 18:30-19:00 flat bend is visible
-          allX.push(target7PmMs + 15 * 60 * 1000);
+        datasets.push({
+          label: "6PM Stop-Drip Cutoff",
+          data: cutoffPts,
+          borderColor: "#c084fc",
+          borderDash: [4, 4],
+          borderWidth: 1.8,
+          pointRadius: cutoffRadii,
+          pointHoverRadius: 5,
+          pointBackgroundColor: "#c084fc",
+          fill: false,
+          tension: 0.25,
+          yAxisID: "y",
+          order: 0
+        });
 
-          const excessKg = proj6PmKg - target6PmKg;
-          const learnedTag = ` · 📊 Learned ${projStats6Pm.totalSamples} pts (68%: ${proj6PmLowKg.toFixed(2)}–${proj6PmHighKg.toFixed(2)} kg)`;
+        // Reserve future X-axis space past projection endpoint
+        allX.push(cutoffEndMs + 15 * 60 * 1000);
+
+        const learnedTag = ` · 📊 Learned ${projStatsTarget.totalSamples} pts (68%: ${projTargetLowKg.toFixed(2)}–${projTargetHighKg.toFixed(2)} kg)`;
+        if (isBefore6Pm) {
+          const excessKg = projTargetKg - target6PmKg;
           if (advice6PmEl) {
             if (excessKg > 0.03) {
               advice6PmEl.style.color = "#fbbf24";
-              advice6PmEl.textContent = `🛑 Stop Drip Now — Proj 6PM: ${proj6PmDryBackPct.toFixed(1)}% (${proj6PmKg.toFixed(2)} kg, +${Math.round(excessKg * 1000)} mL over target @ ${rateLabel})${learnedTag}`;
+              advice6PmEl.textContent = `🛑 Stop Drip Now — Proj 6PM: ${projTargetDryBackPct.toFixed(1)}% (${projTargetKg.toFixed(2)} kg, +${Math.round(excessKg * 1000)} mL over target @ ${rateLabel})${learnedTag}`;
             } else if (excessKg >= -0.05) {
               advice6PmEl.style.color = "#4ade80";
-              advice6PmEl.textContent = `✅ Stop Drip Now — On track for ${proj6PmDryBackPct.toFixed(1)}% dry-back at 6PM (${proj6PmKg.toFixed(2)} kg @ ${rateLabel})${learnedTag}`;
+              advice6PmEl.textContent = `✅ Stop Drip Now — On track for ${projTargetDryBackPct.toFixed(1)}% dry-back at 6PM (${projTargetKg.toFixed(2)} kg @ ${rateLabel})${learnedTag}`;
             } else {
               const roomMl = Math.round(Math.abs(excessKg) * 1000);
               advice6PmEl.style.color = "#38bdf8";
-              advice6PmEl.textContent = `💧 ${roomMl} mL room before 6PM target · Proj 6PM: ${proj6PmDryBackPct.toFixed(1)}% (${proj6PmKg.toFixed(2)} kg @ ${rateLabel})${learnedTag}`;
+              advice6PmEl.textContent = `💧 ${roomMl} mL room before 6PM target · Proj 6PM: ${projTargetDryBackPct.toFixed(1)}% (${projTargetKg.toFixed(2)} kg @ ${rateLabel})${learnedTag}`;
             }
           }
         } else if (advice6PmEl) {
           const curDryBack = 100 - latestRow.moisturePct;
           advice6PmEl.style.color = curDryBack >= targetDryBackPct ? "#4ade80" : "#fbbf24";
-          advice6PmEl.textContent = `Past 6:00 PM · Current dry-back: ${curDryBack.toFixed(1)}% (${latestRow.weightKg.toFixed(2)} kg vs ${targetDryBackPct}% target)`;
+          advice6PmEl.textContent = `Past 6:00 PM · Current dry-back: ${curDryBack.toFixed(1)}% (${latestRow.weightKg.toFixed(2)} kg vs ${targetDryBackPct}% target) · Proj ${targetTimeStr}: ${projTargetKg.toFixed(2)} kg${learnedTag}`;
         }
       } else if (advice6PmEl && !this.showDryBackProj) {
         advice6PmEl.style.color = "var(--text-secondary)";
