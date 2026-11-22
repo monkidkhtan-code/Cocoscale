@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.57").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.58").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1795,12 +1795,6 @@ class CocoScaleApp {
         advice6PmEl.textContent = "Projection lines hidden on graph (click Lines: ON to show).";
       }
     }
-
-    const showProjLegends = Boolean(projEndpointInfo);
-    const legProjEl = document.getElementById("legend-proj-6pm");
-    const legCutoffEl = document.getElementById("legend-cutoff-6pm");
-    if (legProjEl) legProjEl.style.display = showProjLegends ? "inline-flex" : "none";
-    if (legCutoffEl) legCutoffEl.style.display = showProjLegends ? "inline-flex" : "none";
 
     // Stack RainPoint Temperature (°C) overlay
     let hasTempDataset = false;
