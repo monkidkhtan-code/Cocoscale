@@ -30,7 +30,7 @@ class CocoScaleApp {
     this.batteryChart = null;
     this.chartInstance = null;
     this.waterBalanceChart = null;
-    this.wbChartMode = "hourly"; // 'daily7' | 'daily14' | 'hourly'
+    this.wbChartMode = "halfhour"; // 'daily7' | 'daily14' | 'hourly' | 'halfhour'
     this.wbSelectedDay = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate(), 0, 0, 0, 0);
     this.pollTimer = null;
     this.countdownTimer = null;
@@ -46,7 +46,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.49").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.50").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -2163,7 +2163,34 @@ class CocoScaleApp {
       }).join("");
     }
 
-    if (this.wbChartMode === "hourly") {
+    if (this.wbChartMode === "halfhour") {
+      const dayStartMs = anchorDay.getTime();
+      const dayEndMs = dayStartMs + 24 * 3600 * 1000 - 1;
+      const dayLbl = anchorDay.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      if (subEl) subEl.textContent = `30-Min Liquid In vs Evap. & Plant Uptake on ${dayLbl} (mL / 30m)`;
+
+      const slotIn = new Array(48).fill(0);
+      const slotOut = new Array(48).fill(0);
+      for (let i = 1; i < rows.length; i++) {
+        const prev = rows[i - 1];
+        const curr = rows[i];
+        const t = curr.ts.getTime();
+        if (t < dayStartMs || t > dayEndMs) continue;
+        // Snap timestamps up to 60s early (e.g. 11:29:59 -> 11:30 slot)
+        const minsIntoDay = Math.floor((t - dayStartMs + 60000) / 60000);
+        const slotIdx = Math.min(47, Math.max(0, Math.floor(minsIntoDay / 30)));
+        const dKg = curr.weightKg - prev.weightKg;
+        if (dKg > 0.005) slotIn[slotIdx] += Math.round(dKg * 1000);
+        else if (dKg <= -0.005) slotOut[slotIdx] += Math.round(Math.abs(dKg) * 1000);
+      }
+      for (let s = 0; s < 48; s++) {
+        const hh = String(Math.floor(s / 2)).padStart(2, "0");
+        const mm = s % 2 === 0 ? "00" : "30";
+        labels.push(`${hh}:${mm}`);
+        inVals.push(slotIn[s]);
+        outVals.push(slotOut[s]);
+      }
+    } else if (this.wbChartMode === "hourly") {
       this.renderWaterBalanceChart();
     }
 
@@ -2222,7 +2249,34 @@ class CocoScaleApp {
       wbDayNextEl.classList.toggle("disabled", anchorDay.getTime() >= todayMidnight.getTime());
     }
 
-    if (this.wbChartMode === "hourly") {
+    if (this.wbChartMode === "halfhour") {
+      const dayStartMs = anchorDay.getTime();
+      const dayEndMs = dayStartMs + 24 * 3600 * 1000 - 1;
+      const dayLbl = anchorDay.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      if (subEl) subEl.textContent = `30-Min Liquid In vs Evap. & Plant Uptake on ${dayLbl} (mL / 30m)`;
+
+      const slotIn = new Array(48).fill(0);
+      const slotOut = new Array(48).fill(0);
+      for (let i = 1; i < rows.length; i++) {
+        const prev = rows[i - 1];
+        const curr = rows[i];
+        const t = curr.ts.getTime();
+        if (t < dayStartMs || t > dayEndMs) continue;
+        // Snap timestamps up to 60s early (e.g. 11:29:59 -> 11:30 slot)
+        const minsIntoDay = Math.floor((t - dayStartMs + 60000) / 60000);
+        const slotIdx = Math.min(47, Math.max(0, Math.floor(minsIntoDay / 30)));
+        const dKg = curr.weightKg - prev.weightKg;
+        if (dKg > 0.005) slotIn[slotIdx] += Math.round(dKg * 1000);
+        else if (dKg <= -0.005) slotOut[slotIdx] += Math.round(Math.abs(dKg) * 1000);
+      }
+      for (let s = 0; s < 48; s++) {
+        const hh = String(Math.floor(s / 2)).padStart(2, "0");
+        const mm = s % 2 === 0 ? "00" : "30";
+        labels.push(`${hh}:${mm}`);
+        inVals.push(slotIn[s]);
+        outVals.push(slotOut[s]);
+      }
+    } else if (this.wbChartMode === "hourly") {
       const dayStartMs = anchorDay.getTime();
       const dayEndMs = dayStartMs + 24 * 3600 * 1000 - 1;
       const dayLbl = anchorDay.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
