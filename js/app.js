@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.58").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.59").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1716,7 +1716,7 @@ class CocoScaleApp {
           projEndpointInfo = {
             xMs: target6PmMs,
             yVal: toChartVal(proj6PmKg),
-            label: isWeight ? `18:00 Est: ${proj6PmKg.toFixed(2)} kg` : `18:00 Est: ${proj6PmMoistPct.toFixed(0)}%`,
+            label: isWeight ? `18:00 · ${proj6PmKg.toFixed(2)} kg` : `18:00 · ${proj6PmMoistPct.toFixed(0)}%`,
             color: "#22d3ee"
           };
 
@@ -1895,28 +1895,39 @@ class CocoScaleApp {
           });
         }
 
-        // Floating pill at 18:00 endpoint dot for effortless field reading
+        // Sleek floating pill positioned in open space above-right of 18:00 dot (never blocking descending lines)
         if (projEndpointInfo && scales.x) {
           const px = scales.x.getPixelForValue(projEndpointInfo.xMs);
           const py = scales.y.getPixelForValue(projEndpointInfo.yVal);
           if (px >= chartArea.left && px <= chartArea.right) {
             const text = projEndpointInfo.label;
-            c.font = "700 10.5px 'JetBrains Mono', monospace";
+            c.font = "700 9.5px 'JetBrains Mono', monospace";
             const textW = c.measureText(text).width;
-            const padX = 7;
+            const padX = 6;
             const pillW = textW + padX * 2;
-            const pillH = 20;
-            const pillX = Math.max(chartArea.left + 6, Math.min(chartArea.right - pillW - 6, px - pillW - 10));
-            const rawY = py - pillH - 8;
-            const pillY = Math.max(chartArea.top + 6, Math.min(chartArea.bottom - pillH - 6, rawY < chartArea.top + 6 ? py + 10 : rawY));
+            const pillH = 17;
+            const pillX = Math.max(chartArea.left + 6, Math.min(chartArea.right - pillW - 6, px - pillW * 0.25));
+            const placeBelow = (py - pillH - 14) < (chartArea.top + 4);
+            const pillY = placeBelow
+              ? Math.min(chartArea.bottom - pillH - 6, py + 12)
+              : Math.max(chartArea.top + 4, py - pillH - 14);
+
+            // Subtle leader line tying pill to the 18:00 dot
+            c.beginPath();
+            c.setLineDash([2, 2]);
+            c.strokeStyle = "rgba(34, 211, 238, 0.55)";
+            c.lineWidth = 1;
+            c.moveTo(px, placeBelow ? py + 5 : py - 5);
+            c.lineTo(px, placeBelow ? pillY : pillY + pillH);
+            c.stroke();
 
             c.setLineDash([]);
-            c.fillStyle = "rgba(6, 22, 16, 0.92)";
-            c.strokeStyle = projEndpointInfo.color || "#22d3ee";
-            c.lineWidth = 1.2;
+            c.fillStyle = "rgba(6, 22, 16, 0.78)";
+            c.strokeStyle = "rgba(34, 211, 238, 0.75)";
+            c.lineWidth = 1;
             c.beginPath();
             if (c.roundRect) {
-              c.roundRect(pillX, pillY, pillW, pillH, 6);
+              c.roundRect(pillX, pillY, pillW, pillH, 5);
             } else {
               c.rect(pillX, pillY, pillW, pillH);
             }
