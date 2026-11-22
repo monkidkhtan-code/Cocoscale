@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.52").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.53").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -370,6 +370,7 @@ class CocoScaleApp {
       this.targetDryBack6PmPct = clamped;
       if (input6Pm) input6Pm.value = clamped;
       sync6PmPrefsToCloud();
+      this.renderHero();
       this.renderChart();
     };
 
@@ -1271,12 +1272,12 @@ class CocoScaleApp {
       document.getElementById("kpi-uptake-sub").textContent = "Calculates after ≥20 mins of readings";
     }
 
-    // 3-Parameter Drip Decision (Weight Dry-Back, Temp > 28°C, Light > 500 Lux)
+    // 3-Parameter Drip Decision (3-Phase Dry-Back Gate, Temp > 28°C, Light > 500 Lux)
     const rp = this.getStationRainpoint(st);
-    this.renderDripDecision(st, m, rp);
+    this.renderDripDecision(st, m, rp, analysis);
   }
 
-  renderDripDecision(st, m, rp) {
+  renderDripDecision(st, m, rp, analysis = null) {
     const cardEl = document.getElementById("drip-decision-card");
     const iconEl = document.getElementById("drip-decision-badge-icon");
     const badgeTextEl = document.getElementById("drip-decision-badge-text");
@@ -1301,11 +1302,71 @@ class CocoScaleApp {
       return;
     }
 
-    // 1. Parameter 1: Weight / Moisture Dry-Back Trigger
-    // Must be dry back or hit trigger point. If still saturated (above trigger), hold the drip.
-    const isDryBackReached = (m.rawWeightKg <= m.triggerRawKg) || (m.rawPct <= m.triggerPct);
-    const weightExcessKg = m.rawWeightKg - m.triggerRawKg;
-    const excessMl = Math.round(weightExcessKg * 1000);
+    // 1. Parameter 1: 3-Phase Dry-Back / Saturation Gate
+    // Phase 1 (< 9:00 AM): Hold if > 5.10 kg. Phase 2 (9 AM - 6 PM): Drip if proj6PmKg <= target6PmKg. Phase 3 (Cutoff / Night): Hold if over-saturated for 6PM target.
+    const cal = st.calibration || {};
+    const now = new Date();
+    const hr = now.getHours();
+    const defaultDryBackPct = Math.max(5, Math.min(75, Math.round(100 - (Number(cal.irrigateTriggerPct) || 65))));
+    const targetDryBackPct = this.targetDryBack6PmPct !== null ? this.targetDryBack6PmPct : defaultDryBackPct;
+    const targetMoisturePct = 100 - targetDryBackPct;
+    const waterCapKg = Math.max(0.1, m.waterCapacityKg);
+    const tareKg = m.fieldCapacityRawKg - waterCapKg;
+    const target6PmKg = tareKg + waterCapKg * (targetMoisturePct / 100);
+    const target6PmMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0, 0).getTime();
+    const hrsTo6Pm = Math.max(0, (target6PmMs - now.getTime()) / 3600000);
+    const rawRateMl = analysis?.dryingRateMlPerHr || 0;
+    const rateKgPerHr = rawRateMl >= 20 ? rawRateMl / 1000 : 0.085;
+    const proj6PmKg = Math.max(tareKg, m.rawWeightKg - rateKgPerHr * hrsTo6Pm);
+
+    let isDryBackReached = false;
+    let weightChipLbl = "💧 Saturated";
+    let weightChipTitle = "";
+    let weightHoldReason = "";
+
+    if (hr < 9) {
+      if (m.rawWeightKg <= 5.10) {
+        isDryBackReached = true;
+        weightChipLbl = "🌱 Morning OK";
+        weightChipTitle = `Morning weight ${m.rawWeightKg.toFixed(2)} kg is ≤ 5.10 kg threshold.`;
+      } else {
+        isDryBackReached = false;
+        weightChipLbl = "💧 Morning Hold";
+        const diffMl = Math.round((m.rawWeightKg - 5.10) * 1000);
+        weightChipTitle = `Morning dry-back hold before 9:00 AM (${m.rawWeightKg.toFixed(2)} kg > 5.10 kg, +${diffMl} mL).`;
+        weightHoldReason = `Morning dry-back before 9 AM (${m.rawWeightKg.toFixed(2)} kg > 5.10 kg)`;
+      }
+    } else if (hr < 18) {
+      if (m.rawWeightKg >= m.fieldCapacityRawKg) {
+        isDryBackReached = false;
+        weightChipLbl = "💧 At 100% FC";
+        weightChipTitle = `Bag is at or above 100% Field Capacity (${m.fieldCapacityRawKg.toFixed(2)} kg).`;
+        weightHoldReason = `At 100% Field Capacity (${m.rawWeightKg.toFixed(2)} kg)`;
+      } else if (proj6PmKg <= target6PmKg) {
+        isDryBackReached = true;
+        const roomMl = Math.round((target6PmKg - proj6PmKg) * 1000);
+        weightChipLbl = "🌱 Room to Drip";
+        weightChipTitle = `On track for ${targetDryBackPct}% dry-back by 6 PM (~${roomMl} mL room at ${Math.round(rateKgPerHr * 1000)} mL/hr).`;
+      } else {
+        isDryBackReached = false;
+        const overMl = Math.round((proj6PmKg - target6PmKg) * 1000);
+        weightChipLbl = "💧 Hold for 6PM";
+        weightChipTitle = `Projected 6 PM weight (${proj6PmKg.toFixed(2)} kg) exceeds 6 PM target (${target6PmKg.toFixed(2)} kg) by +${overMl} mL.`;
+        weightHoldReason = `Over-saturated for 6 PM target (+${overMl} mL above ${target6PmKg.toFixed(2)} kg)`;
+      }
+    } else {
+      if (m.rawWeightKg <= target6PmKg) {
+        isDryBackReached = true;
+        weightChipLbl = "🌱 Dry-back OK";
+        weightChipTitle = `Evening weight ${m.rawWeightKg.toFixed(2)} kg reached ${targetDryBackPct}% dry-back target.`;
+      } else {
+        isDryBackReached = false;
+        const overMl = Math.round((m.rawWeightKg - target6PmKg) * 1000);
+        weightChipLbl = "💧 Saturated";
+        weightChipTitle = `Evening weight ${m.rawWeightKg.toFixed(2)} kg is +${overMl} mL above ${targetDryBackPct}% dry-back target.`;
+        weightHoldReason = `Above ${targetDryBackPct}% dry-back target (+${overMl} mL)`;
+      }
+    }
 
     const lblWeightEl = document.getElementById("drip-rule-weight-lbl");
     const lblTempEl = document.getElementById("drip-rule-temp-lbl");
@@ -1314,15 +1375,15 @@ class CocoScaleApp {
     if (isDryBackReached) {
       ruleWeightEl.className = "drip-rule-chip pass";
       ruleWeightEl.querySelector(".drip-rule-icon").textContent = "✓";
-      if (lblWeightEl) lblWeightEl.textContent = "🌱 Dry-back OK";
+      if (lblWeightEl) lblWeightEl.textContent = weightChipLbl;
       valWeightEl.textContent = `${m.rawWeightKg.toFixed(2)} kg`;
-      ruleWeightEl.title = `Current ${m.rawWeightKg.toFixed(2)} kg has reached or dropped below irrigation trigger (${m.triggerRawKg.toFixed(2)} kg / ${m.triggerPct}%). Dry-back satisfied.`;
+      ruleWeightEl.title = weightChipTitle;
     } else {
       ruleWeightEl.className = "drip-rule-chip fail";
       ruleWeightEl.querySelector(".drip-rule-icon").textContent = "✕";
-      if (lblWeightEl) lblWeightEl.textContent = "💧 Saturated";
+      if (lblWeightEl) lblWeightEl.textContent = weightChipLbl;
       valWeightEl.textContent = `${m.rawWeightKg.toFixed(2)} kg`;
-      ruleWeightEl.title = `Current ${m.rawWeightKg.toFixed(2)} kg is ${excessMl} mL above the irrigation trigger (${m.triggerRawKg.toFixed(2)} kg). Cocopeat still holds adequate moisture.`;
+      ruleWeightEl.title = weightChipTitle;
     }
 
     // 2. Parameter 2: Temperature > 28°C
@@ -1389,7 +1450,7 @@ class CocoScaleApp {
 
       const holdReasons = [];
       if (!isDryBackReached) {
-        holdReasons.push(`Moisture still saturated (+${excessMl} mL above trigger)`);
+        holdReasons.push(weightHoldReason || "Moisture still saturated");
       }
       if (!isTempOk) {
         if (temp === null) holdReasons.push("Awaiting temperature data");
