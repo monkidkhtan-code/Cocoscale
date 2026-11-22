@@ -57,12 +57,47 @@ html, body {
   justify-content: space-between;
   gap: 0.55rem;
   padding: 0.5rem 0.85rem;
-  background: linear-gradient(180deg, rgba(16, 44, 28, 0.92), rgba(10, 29, 19, 0.92));
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(110, 200, 130, 0.22);
+  background: linear-gradient(135deg, #6ea756, #52883c);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
   border-radius: var(--radius-lg);
   margin-bottom: 0.7rem;
   flex-wrap: nowrap;
+}
+
+.top-bar .brand-title {
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+.top-bar .brand-sub {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.top-bar .version-badge {
+  background: rgba(10, 30, 18, 0.36);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+.top-bar #btn-sync-now {
+  background: rgba(10, 30, 18, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+.top-bar #btn-sync-now:hover {
+  background: rgba(10, 30, 18, 0.62);
+}
+
+.top-bar #btn-force-reload {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.32) !important;
+  color: #ffffff;
+}
+
+.top-bar #btn-force-reload:hover {
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .brand-wrap {
