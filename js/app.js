@@ -23,8 +23,9 @@ class CocoScaleApp {
     this.showTempOverlay = this.config.chartPrefs?.showTemp !== undefined ? Boolean(this.config.chartPrefs.showTemp) : true;
     this.showDryBackProj = this.config.chartPrefs?.showDryBackProj !== undefined ? Boolean(this.config.chartPrefs.showDryBackProj) : true;
     this.show6PmBar = false; // Settings bar starts collapsed; projection lines stay visible on graph
-    this.targetDryBack6PmPct = Number.isFinite(Number(this.config.chartPrefs?.targetDryBack6PmPct))
-      ? Number(this.config.chartPrefs.targetDryBack6PmPct)
+    const _raw6PmPct = this.config.chartPrefs?.targetDryBack6PmPct;
+    this.targetDryBack6PmPct = (_raw6PmPct !== null && _raw6PmPct !== undefined && _raw6PmPct !== "" && Number(_raw6PmPct) >= 5)
+      ? Math.min(75, Math.max(5, Math.round(Number(_raw6PmPct))))
       : null;
     this.batteryHours = 12; // Default 12H
     this.batteryChart = null;
@@ -46,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.51").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.52").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -771,8 +772,9 @@ class CocoScaleApp {
       const activePlotKey = this.getSelectedStation()?.deviceControl?.plotKey;
       const cloudAppPrefs = activePlotKey ? this.deviceCloudMap[activePlotKey]?.appPrefs : null;
       if (cloudAppPrefs) {
-        if (cloudAppPrefs.targetDryBack6PmPct !== undefined && Number.isFinite(Number(cloudAppPrefs.targetDryBack6PmPct))) {
-          this.targetDryBack6PmPct = Number(cloudAppPrefs.targetDryBack6PmPct);
+        const cPct = cloudAppPrefs.targetDryBack6PmPct;
+        if (cPct !== null && cPct !== undefined && cPct !== "" && Number(cPct) >= 5 && Number(cPct) <= 75) {
+          this.targetDryBack6PmPct = Math.round(Number(cPct));
         }
         if (cloudAppPrefs.showDryBackProj !== undefined) {
           this.showDryBackProj = Boolean(cloudAppPrefs.showDryBackProj);
