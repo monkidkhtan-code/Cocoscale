@@ -1279,6 +1279,69 @@ html, body {
   pointer-events: none;
 }
 
+.chart-6pm-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.85rem;
+  padding: 0.48rem 0.72rem;
+  margin-bottom: 0.65rem;
+  border-radius: var(--radius-sm);
+  background: rgba(88, 28, 135, 0.14);
+  border: 1px solid rgba(192, 132, 252, 0.28);
+}
+
+.chart-6pm-target-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.chart-6pm-stepper {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(192, 132, 252, 0.32);
+  border-radius: 8px;
+  padding: 2px 4px;
+  gap: 0.15rem;
+}
+
+.chart-6pm-stepper .pill-btn {
+  padding: 0.14rem 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #e9d5ff;
+}
+
+.chart-6pm-input {
+  width: 44px;
+  text-align: center;
+  background: transparent;
+  border: none;
+  color: #f8fafc;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.1rem 0;
+}
+
+.chart-6pm-input:focus {
+  outline: none;
+}
+
+.chart-6pm-advice {
+  font-size: 0.72rem;
+  color: #c4b5fd;
+  font-weight: 600;
+}
+
+#btn-toggle-6pm-proj.active {
+  background: rgba(192, 132, 252, 0.22);
+  color: #e9d5ff;
+}
+
 .events-day-bar {
   display: flex;
   align-items: center;

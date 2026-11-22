@@ -21,6 +21,10 @@ class CocoScaleApp {
     this.chartYMaxKg = Number.isFinite(Number(this.config.chartYScale?.maxKg)) ? Number(this.config.chartYScale.maxKg) : 9.0;
     this.showLuxOverlay = this.config.chartPrefs?.showLux !== undefined ? Boolean(this.config.chartPrefs.showLux) : true;
     this.showTempOverlay = this.config.chartPrefs?.showTemp !== undefined ? Boolean(this.config.chartPrefs.showTemp) : true;
+    this.showDryBackProj = this.config.chartPrefs?.showDryBackProj !== undefined ? Boolean(this.config.chartPrefs.showDryBackProj) : true;
+    this.targetDryBack6PmPct = Number.isFinite(Number(this.config.chartPrefs?.targetDryBack6PmPct))
+      ? Number(this.config.chartPrefs.targetDryBack6PmPct)
+      : null;
     this.batteryHours = 12; // Default 12H
     this.batteryChart = null;
     this.chartInstance = null;
@@ -38,7 +42,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.42").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.43").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -288,6 +292,52 @@ class CocoScaleApp {
       btnCloseScale.addEventListener("click", () => {
         scalePanel.classList.add("hidden");
       });
+    }
+
+    // 6:00 PM Dry-Back Projection Toggle & Target Stepper
+    const btnToggle6Pm = document.getElementById("btn-toggle-6pm-proj");
+    const bar6Pm = document.getElementById("chart-6pm-bar");
+    const input6Pm = document.getElementById("input-6pm-target-pct");
+    const btnMinus6Pm = document.getElementById("btn-6pm-target-minus");
+    const btnPlus6Pm = document.getElementById("btn-6pm-target-plus");
+
+    const apply6PmTargetPct = (val) => {
+      const clamped = Math.min(75, Math.max(5, Math.round(Number(val) || 35)));
+      this.targetDryBack6PmPct = clamped;
+      if (input6Pm) input6Pm.value = clamped;
+      this.config.chartPrefs = {
+        ...(this.config.chartPrefs || {}),
+        showDryBackProj: this.showDryBackProj,
+        targetDryBack6PmPct: clamped
+      };
+      ConfigStore.save(this.config);
+      this.renderChart();
+    };
+
+    if (btnToggle6Pm && bar6Pm) {
+      btnToggle6Pm.classList.toggle("active", this.showDryBackProj);
+      bar6Pm.classList.toggle("hidden", !this.showDryBackProj);
+      btnToggle6Pm.addEventListener("click", () => {
+        this.showDryBackProj = !this.showDryBackProj;
+        btnToggle6Pm.classList.toggle("active", this.showDryBackProj);
+        bar6Pm.classList.toggle("hidden", !this.showDryBackProj);
+        this.config.chartPrefs = {
+          ...(this.config.chartPrefs || {}),
+          showDryBackProj: this.showDryBackProj,
+          targetDryBack6PmPct: this.targetDryBack6PmPct
+        };
+        ConfigStore.save(this.config);
+        this.renderChart();
+      });
+    }
+    if (input6Pm) {
+      input6Pm.addEventListener("change", () => apply6PmTargetPct(input6Pm.value));
+    }
+    if (btnMinus6Pm && input6Pm) {
+      btnMinus6Pm.addEventListener("click", () => apply6PmTargetPct((Number(input6Pm.value) || 35) - 2));
+    }
+    if (btnPlus6Pm && input6Pm) {
+      btnPlus6Pm.addEventListener("click", () => apply6PmTargetPct((Number(input6Pm.value) || 35) + 2));
     }
     const yModeGroup = document.getElementById("chart-y-mode-group");
     if (yModeGroup) {
@@ -1425,6 +1475,112 @@ class CocoScaleApp {
           { y: Number(cal.irrigateTriggerPct) || 70, label: `Trigger (${cal.irrigateTriggerPct}%)`, color: "#f59e0b" },
           { y: Number(cal.criticalFloorPct) || 50, label: `Critical (${cal.criticalFloorPct}%)`, color: "#ef4444" }
         ];
+      }
+
+      // 6:00 PM Dry-Back Projection & Stop-Drip Cutoff Lines
+      const bar6PmEl = document.getElementById("chart-6pm-bar");
+      const input6PmEl = document.getElementById("input-6pm-target-pct");
+      const targetKgEl = document.getElementById("chart-6pm-target-kg");
+      const advice6PmEl = document.getElementById("chart-6pm-advice");
+
+      const defaultDryBackPct = Math.max(5, Math.min(75, Math.round(100 - (Number(cal.irrigateTriggerPct) || 65))));
+      const targetDryBackPct = this.targetDryBack6PmPct !== null ? this.targetDryBack6PmPct : defaultDryBackPct;
+      if (input6PmEl && document.activeElement !== input6PmEl) input6PmEl.value = targetDryBackPct;
+
+      const targetMoisturePct = 100 - targetDryBackPct;
+      const waterCapKg = Math.max(0.1, refM.waterCapacityKg);
+      const tareKg = refM.effectiveDryKg;
+      const target6PmKg = tareKg + waterCapKg * (targetMoisturePct / 100);
+      if (targetKgEl) targetKgEl.textContent = `(${target6PmKg.toFixed(2)} kg / ${targetMoisturePct}% moist.)`;
+
+      if (this.showDryBackProj && activeWeightRows.length > 0 && !this.chartSelectedDay) {
+        if (bar6PmEl) bar6PmEl.classList.remove("hidden");
+        const latestRow = activeWeightRows[activeWeightRows.length - 1];
+        const latestMs = latestRow.ts.getTime();
+        const latestDate = new Date(latestMs);
+        const target6PmDate = new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate(), 18, 0, 0, 0);
+        const target6PmMs = target6PmDate.getTime();
+
+        const rawRateMl = state?.analysis?.dryingRateMlPerHr || 0;
+        const usedFallback = rawRateMl < 20;
+        const rateKgPerHr = usedFallback ? 0.085 : rawRateMl / 1000;
+        const rateLabel = `${Math.round(rateKgPerHr * 1000)} mL/hr${usedFallback ? " est." : ""}`;
+
+        if (latestMs < target6PmMs) {
+          const hrsTo6Pm = (target6PmMs - latestMs) / 3600000;
+          const proj6PmKg = Math.max(tareKg, latestRow.weightKg - rateKgPerHr * hrsTo6Pm);
+          const proj6PmMoistPct = Math.max(0, Math.min(100, ((proj6PmKg - tareKg) / waterCapKg) * 100));
+          const proj6PmDryBackPct = 100 - proj6PmMoistPct;
+
+          const startVal = isWeight ? latestRow.weightKg : latestRow.moisturePct;
+          const endProjVal = isWeight ? proj6PmKg : proj6PmMoistPct;
+
+          datasets.push({
+            label: "Projected Dry-Back (→ 6PM)",
+            data: [
+              { x: latestMs, y: startVal },
+              { x: target6PmMs, y: endProjVal }
+            ],
+            borderColor: "#22d3ee",
+            borderDash: [6, 4],
+            borderWidth: 2,
+            pointRadius: [0, 4.5],
+            pointBackgroundColor: "#22d3ee",
+            fill: false,
+            tension: 0,
+            yAxisID: "y",
+            order: 0
+          });
+
+          // Backward Stop-Drip Cutoff Slope from 18:00 target weight
+          const morning7AmMs = new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate(), 7, 0, 0, 0).getTime();
+          const cutoffStartMs = Math.max(morning7AmMs, latestMs - 3 * 3600000);
+          const hrsSpan = (target6PmMs - cutoffStartMs) / 3600000;
+          const cutoffStartKg = target6PmKg + rateKgPerHr * hrsSpan;
+          const cutoffStartMoistPct = ((cutoffStartKg - tareKg) / waterCapKg) * 100;
+
+          datasets.push({
+            label: "6PM Stop-Drip Cutoff",
+            data: [
+              { x: cutoffStartMs, y: isWeight ? cutoffStartKg : cutoffStartMoistPct },
+              { x: target6PmMs, y: isWeight ? target6PmKg : targetMoisturePct }
+            ],
+            borderColor: "#c084fc",
+            borderDash: [4, 4],
+            borderWidth: 1.8,
+            pointRadius: [0, 4.5],
+            pointBackgroundColor: "#c084fc",
+            fill: false,
+            tension: 0,
+            yAxisID: "y",
+            order: 0
+          });
+
+          // Reserve future X-axis space past 18:00
+          allX.push(target6PmMs + 30 * 60 * 1000);
+
+          const excessKg = proj6PmKg - target6PmKg;
+          const diffNowMl = Math.round((latestRow.weightKg - target6PmKg) * 1000);
+          if (advice6PmEl) {
+            if (excessKg > 0.03) {
+              advice6PmEl.style.color = "#fbbf24";
+              advice6PmEl.textContent = `🛑 Stop Drip Now — Proj 6PM: ${proj6PmDryBackPct.toFixed(1)}% (${proj6PmKg.toFixed(2)} kg, +${Math.round(excessKg * 1000)} mL over target @ ${rateLabel})`;
+            } else if (excessKg >= -0.05) {
+              advice6PmEl.style.color = "#4ade80";
+              advice6PmEl.textContent = `✅ Stop Drip Now — On track for ${proj6PmDryBackPct.toFixed(1)}% dry-back at 6PM (${proj6PmKg.toFixed(2)} kg @ ${rateLabel})`;
+            } else {
+              const roomMl = Math.round(Math.abs(excessKg) * 1000);
+              advice6PmEl.style.color = "#38bdf8";
+              advice6PmEl.textContent = `💧 ${roomMl} mL room before 6PM target · Proj 6PM: ${proj6PmDryBackPct.toFixed(1)}% (${proj6PmKg.toFixed(2)} kg @ ${rateLabel})`;
+            }
+          }
+        } else if (advice6PmEl) {
+          const curDryBack = 100 - latestRow.moisturePct;
+          advice6PmEl.style.color = curDryBack >= targetDryBackPct ? "#4ade80" : "#fbbf24";
+          advice6PmEl.textContent = `Past 6:00 PM · Current dry-back: ${curDryBack.toFixed(1)}% (${latestRow.weightKg.toFixed(2)} kg vs ${targetDryBackPct}% target)`;
+        }
+      } else if (bar6PmEl && (!this.showDryBackProj || this.chartMode === "compare")) {
+        bar6PmEl.classList.add("hidden");
       }
     }
 

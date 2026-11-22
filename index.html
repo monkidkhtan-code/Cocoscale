@@ -24,18 +24,18 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=1.9.42">
+  <link rel="stylesheet" href="css/styles.css?v=1.9.43">
 </head>
 <body>
   <div class="app-shell">
     <!-- Top Header (Compact) -->
     <header class="top-bar">
       <div class="brand-wrap">
-        <img src="assets/logo-mark.png?v=1.9.42" alt="KH CocoScale Logo" class="brand-icon">
+        <img src="assets/logo-mark.png?v=1.9.43" alt="KH CocoScale Logo" class="brand-icon">
         <div>
           <div class="brand-title">
             <span>KH CocoScale</span>
-            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.42</span>
+            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.43</span>
           </div>
           <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
         </div>
@@ -478,7 +478,28 @@
               <i data-lucide="Sliders" style="width:13px; height:13px;"></i>
               <span id="btn-chart-scale-label">⚙ Range: Adaptive</span>
             </button>
+
+            <button type="button" id="btn-toggle-6pm-proj" class="pill-btn active" style="padding:0.3rem 0.58rem; font-size:0.72rem; border:1px solid rgba(192,132,252,0.42);" title="Show/hide 6:00 PM Dry-Back Projection &amp; Stop-Drip Cutoff line">
+              🎯 6PM Proj
+            </button>
           </div>
+        </div>
+      </div>
+
+      <!-- 6:00 PM Dry-Back Target & Stop-Drip Cutoff Bar -->
+      <div id="chart-6pm-bar" class="chart-6pm-bar">
+        <div class="chart-6pm-target-ctrl">
+          <span style="font-size:0.72rem; font-weight:700; color:#e9d5ff;">🎯 6PM Dry-Back Target:</span>
+          <div class="chart-6pm-stepper">
+            <button type="button" id="btn-6pm-target-minus" class="pill-btn" title="Decrease target dry-back %">−</button>
+            <input type="number" id="input-6pm-target-pct" min="5" max="75" step="1" value="35" class="mono chart-6pm-input">
+            <span class="mono" style="font-size:0.74rem; color:#c084fc; font-weight:700;">%</span>
+            <button type="button" id="btn-6pm-target-plus" class="pill-btn" title="Increase target dry-back %">+</button>
+          </div>
+          <span id="chart-6pm-target-kg" class="mono" style="font-size:0.71rem; color:var(--text-secondary);">(-- kg)</span>
+        </div>
+        <div id="chart-6pm-advice" class="chart-6pm-advice mono">
+          Calculating 6:00 PM dry-back projection...
         </div>
       </div>
 
@@ -650,7 +671,7 @@
           <div>
             <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
               <span style="font-weight:800; font-size:0.9rem; color:var(--text-primary);">KH CocoScale</span>
-              <span class="version-badge mono">App v1.9.42 · ESP32 FW v2.17</span>
+              <span class="version-badge mono">App v1.9.43 · ESP32 FW v2.17</span>
               <div id="sync-status-pill" class="sync-pill" style="padding:0.2rem 0.55rem; font-size:0.71rem;">
                 <span class="sync-dot"></span>
                 <span id="sync-status-text">Connecting...</span>
@@ -1354,11 +1375,11 @@ function respond(obj, callback) {
   <!-- Toast Notification -->
   <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
 
-  <script src="js/config.js?v=1.9.42"></script>
-  <script src="js/moistureEngine.js?v=1.9.42"></script>
-  <script src="js/sheetsService.js?v=1.9.42"></script>
-  <script src="js/rainpointService.js?v=1.9.42"></script>
-  <script src="js/deviceService.js?v=1.9.42"></script>
-  <script src="js/app.js?v=1.9.42"></script>
+  <script src="js/config.js?v=1.9.43"></script>
+  <script src="js/moistureEngine.js?v=1.9.43"></script>
+  <script src="js/sheetsService.js?v=1.9.43"></script>
+  <script src="js/rainpointService.js?v=1.9.43"></script>
+  <script src="js/deviceService.js?v=1.9.43"></script>
+  <script src="js/app.js?v=1.9.43"></script>
 </body>
 </html>
