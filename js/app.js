@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.55").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.56").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1281,6 +1281,37 @@ class CocoScaleApp {
     this.renderDripDecision(st, m, rp, analysis);
   }
 
+  /**
+   * Relative solar/transpiration weight (0.04 at night -> 1.00 peak sun -> smooth cosine dusk taper 16:30 to 18:50).
+   */
+  getSolarWeightAtMs(ms) {
+    const d = new Date(ms);
+    const h = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+    if (h <= 7.0 || h >= 18.833) return 0.04;
+    if (h < 9.0) {
+      const u = (h - 7.0) / 2.0;
+      return 0.04 + 0.96 * (0.5 - 0.5 * Math.cos(Math.PI * u));
+    }
+    if (h <= 16.5) return 1.0;
+    const u = (h - 16.5) / (18.833 - 16.5);
+    return 0.04 + 0.96 * (0.5 + 0.5 * Math.cos(Math.PI * u));
+  }
+
+  /**
+   * Integrates solar-weighted dry-back loss (kg) from fromMs to toMs in 10-minute steps.
+   */
+  integrateDryBackKg(fromMs, toMs, baseRateKgPerHr) {
+    if (!(toMs > fromMs) || !(baseRateKgPerHr > 0)) return 0;
+    const steps = Math.max(1, Math.ceil((toMs - fromMs) / (10 * 60 * 1000)));
+    const dtHr = (toMs - fromMs) / 3600000 / steps;
+    let totalKg = 0;
+    for (let i = 0; i < steps; i++) {
+      const midMs = fromMs + (i + 0.5) * (dtHr * 3600000);
+      totalKg += baseRateKgPerHr * this.getSolarWeightAtMs(midMs) * dtHr;
+    }
+    return totalKg;
+  }
+
   renderDripDecision(st, m, rp, analysis = null) {
     const cardEl = document.getElementById("drip-decision-card");
     const iconEl = document.getElementById("drip-decision-badge-icon");
@@ -1318,10 +1349,10 @@ class CocoScaleApp {
     const tareKg = m.fieldCapacityRawKg - waterCapKg;
     const target6PmKg = tareKg + waterCapKg * (targetMoisturePct / 100);
     const target6PmMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0, 0).getTime();
-    const hrsTo6Pm = Math.max(0, (target6PmMs - now.getTime()) / 3600000);
     const rawRateMl = analysis?.dryingRateMlPerHr || 0;
     const rateKgPerHr = rawRateMl >= 20 ? rawRateMl / 1000 : 0.085;
-    const proj6PmKg = Math.max(tareKg, m.rawWeightKg - rateKgPerHr * hrsTo6Pm);
+    const projLossKg = this.integrateDryBackKg(now.getTime(), target6PmMs, rateKgPerHr);
+    const proj6PmKg = Math.max(tareKg, m.rawWeightKg - projLossKg);
 
     let isDryBackReached = false;
     let weightChipLbl = "💧 Saturated";
@@ -1557,6 +1588,7 @@ class CocoScaleApp {
     let refLines = [];
     let activeWeightRows = [];
     let allX = [];
+    let projEndpointInfo = null;
 
     if (this.chartMode === "compare") {
       const enabled = this.config.stations.filter((s) => s.enabled && this.stationData[s.id]?.analysis?.hasData);
@@ -1649,6 +1681,7 @@ class CocoScaleApp {
         const latestDate = new Date(latestMs);
         const target6PmDate = new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate(), 18, 0, 0, 0);
         const target6PmMs = target6PmDate.getTime();
+        const target7PmMs = target6PmMs + 60 * 60 * 1000;
 
         const rawRateMl = state?.analysis?.dryingRateMlPerHr || 0;
         const usedFallback = rawRateMl < 20;
@@ -1656,60 +1689,89 @@ class CocoScaleApp {
         const rateLabel = `${Math.round(rateKgPerHr * 1000)} mL/hr${usedFallback ? " est." : ""}`;
 
         if (latestMs < target6PmMs) {
-          const hrsTo6Pm = (target6PmMs - latestMs) / 3600000;
-          const proj6PmKg = Math.max(tareKg, latestRow.weightKg - rateKgPerHr * hrsTo6Pm);
+          const projLoss6PmKg = this.integrateDryBackKg(latestMs, target6PmMs, rateKgPerHr);
+          const proj6PmKg = Math.max(tareKg, latestRow.weightKg - projLoss6PmKg);
           const proj6PmMoistPct = Math.max(0, Math.min(100, ((proj6PmKg - tareKg) / waterCapKg) * 100));
           const proj6PmDryBackPct = 100 - proj6PmMoistPct;
 
-          const startVal = isWeight ? latestRow.weightKg : latestRow.moisturePct;
-          const endProjVal = isWeight ? proj6PmKg : proj6PmMoistPct;
+          const toChartVal = (kg) => isWeight ? kg : Math.max(0, Math.min(100, ((kg - tareKg) / waterCapKg) * 100));
+
+          // Build solar-weighted curve every 15m from now -> 18:00 (dot) -> 19:00 (flat dusk tail)
+          const stepMs = 15 * 60 * 1000;
+          const projPts = [];
+          const projRadii = [];
+          for (let t = latestMs; t < target6PmMs; t += stepMs) {
+            const k = Math.max(tareKg, latestRow.weightKg - this.integrateDryBackKg(latestMs, t, rateKgPerHr));
+            projPts.push({ x: t, y: toChartVal(k) });
+            projRadii.push(0);
+          }
+          projPts.push({ x: target6PmMs, y: toChartVal(proj6PmKg) });
+          projRadii.push(5);
+          for (let t = target6PmMs + stepMs; t <= target7PmMs; t += stepMs) {
+            const k = Math.max(tareKg, latestRow.weightKg - this.integrateDryBackKg(latestMs, t, rateKgPerHr));
+            projPts.push({ x: t, y: toChartVal(k) });
+            projRadii.push(0);
+          }
+
+          projEndpointInfo = {
+            xMs: target6PmMs,
+            yVal: toChartVal(proj6PmKg),
+            label: isWeight ? `18:00 Est: ${proj6PmKg.toFixed(2)} kg` : `18:00 Est: ${proj6PmMoistPct.toFixed(0)}%`,
+            color: "#22d3ee"
+          };
 
           datasets.push({
             label: "Projected Dry-Back (→ 6PM)",
-            data: [
-              { x: latestMs, y: startVal },
-              { x: target6PmMs, y: endProjVal }
-            ],
+            data: projPts,
             borderColor: "#22d3ee",
             borderDash: [6, 4],
             borderWidth: 2,
-            pointRadius: [0, 4.5],
+            pointRadius: projRadii,
+            pointHoverRadius: 5,
             pointBackgroundColor: "#22d3ee",
             fill: false,
-            tension: 0,
+            tension: 0.25,
             yAxisID: "y",
             order: 0
           });
 
-          // Backward Stop-Drip Cutoff Slope from 18:00 target weight
+          // Backward solar-weighted Stop-Drip Cutoff curve from 18:00 target weight (bending flat after 17:00 -> 19:00)
           const morning7AmMs = new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate(), 7, 0, 0, 0).getTime();
           const cutoffStartMs = Math.max(morning7AmMs, latestMs - 3 * 3600000);
-          const hrsSpan = (target6PmMs - cutoffStartMs) / 3600000;
-          const cutoffStartKg = target6PmKg + rateKgPerHr * hrsSpan;
-          const cutoffStartMoistPct = ((cutoffStartKg - tareKg) / waterCapKg) * 100;
+          const cutoffPts = [];
+          const cutoffRadii = [];
+          for (let t = cutoffStartMs; t < target6PmMs; t += stepMs) {
+            const k = target6PmKg + this.integrateDryBackKg(t, target6PmMs, rateKgPerHr);
+            cutoffPts.push({ x: t, y: toChartVal(k) });
+            cutoffRadii.push(0);
+          }
+          cutoffPts.push({ x: target6PmMs, y: isWeight ? target6PmKg : targetMoisturePct });
+          cutoffRadii.push(4.5);
+          for (let t = target6PmMs + stepMs; t <= target7PmMs; t += stepMs) {
+            const k = Math.max(tareKg, target6PmKg - this.integrateDryBackKg(target6PmMs, t, rateKgPerHr));
+            cutoffPts.push({ x: t, y: toChartVal(k) });
+            cutoffRadii.push(0);
+          }
 
           datasets.push({
             label: "6PM Stop-Drip Cutoff",
-            data: [
-              { x: cutoffStartMs, y: isWeight ? cutoffStartKg : cutoffStartMoistPct },
-              { x: target6PmMs, y: isWeight ? target6PmKg : targetMoisturePct }
-            ],
+            data: cutoffPts,
             borderColor: "#c084fc",
             borderDash: [4, 4],
             borderWidth: 1.8,
-            pointRadius: [0, 4.5],
+            pointRadius: cutoffRadii,
+            pointHoverRadius: 5,
             pointBackgroundColor: "#c084fc",
             fill: false,
-            tension: 0,
+            tension: 0.25,
             yAxisID: "y",
             order: 0
           });
 
-          // Reserve future X-axis space past 18:00
-          allX.push(target6PmMs + 30 * 60 * 1000);
+          // Reserve future X-axis space through dusk (19:15) so the 18:30-19:00 flat bend is visible
+          allX.push(target7PmMs + 15 * 60 * 1000);
 
           const excessKg = proj6PmKg - target6PmKg;
-          const diffNowMl = Math.round((latestRow.weightKg - target6PmKg) * 1000);
           if (advice6PmEl) {
             if (excessKg > 0.03) {
               advice6PmEl.style.color = "#fbbf24";
@@ -1732,6 +1794,17 @@ class CocoScaleApp {
         advice6PmEl.style.color = "var(--text-secondary)";
         advice6PmEl.textContent = "Projection lines hidden on graph (click Lines: ON to show).";
       }
+
+      const showProjLegends = Boolean(projEndpointInfo);
+      const legProjEl = document.getElementById("legend-proj-6pm");
+      const legCutoffEl = document.getElementById("legend-cutoff-6pm");
+      if (legProjEl) legProjEl.style.display = showProjLegends ? "inline-flex" : "none";
+      if (legCutoffEl) legCutoffEl.style.display = showProjLegends ? "inline-flex" : "none";
+    } else {
+      const legProjEl = document.getElementById("legend-proj-6pm");
+      const legCutoffEl = document.getElementById("legend-cutoff-6pm");
+      if (legProjEl) legProjEl.style.display = "none";
+      if (legCutoffEl) legCutoffEl.style.display = "none";
     }
 
     // Stack RainPoint Temperature (°C) overlay
@@ -1809,28 +1882,63 @@ class CocoScaleApp {
     const thresholdPlugin = {
       id: "thresholdLines",
       afterDraw(chart) {
-        if (!refLines.length) return;
         const { ctx: c, chartArea, scales } = chart;
         if (!chartArea || !scales.y) return;
 
         c.save();
-        refLines.forEach((line) => {
-          const yPix = scales.y.getPixelForValue(line.y);
-          if (yPix < chartArea.top || yPix > chartArea.bottom) return;
+        if (refLines.length) {
+          refLines.forEach((line) => {
+            const yPix = scales.y.getPixelForValue(line.y);
+            if (yPix < chartArea.top || yPix > chartArea.bottom) return;
 
-          c.beginPath();
-          c.setLineDash([5, 5]);
-          c.strokeStyle = line.color;
-          c.lineWidth = 1.2;
-          c.moveTo(chartArea.left, yPix);
-          c.lineTo(chartArea.right, yPix);
-          c.stroke();
+            c.beginPath();
+            c.setLineDash([5, 5]);
+            c.strokeStyle = line.color;
+            c.lineWidth = 1.2;
+            c.moveTo(chartArea.left, yPix);
+            c.lineTo(chartArea.right, yPix);
+            c.stroke();
 
-          c.setLineDash([]);
-          c.fillStyle = line.color;
-          c.font = "600 10px 'JetBrains Mono', monospace";
-          c.fillText(line.label, chartArea.left + 6, yPix - 5);
-        });
+            c.setLineDash([]);
+            c.fillStyle = line.color;
+            c.font = "600 10px 'JetBrains Mono', monospace";
+            c.fillText(line.label, chartArea.left + 6, yPix - 5);
+          });
+        }
+
+        // Floating pill at 18:00 endpoint dot for effortless field reading
+        if (projEndpointInfo && scales.x) {
+          const px = scales.x.getPixelForValue(projEndpointInfo.xMs);
+          const py = scales.y.getPixelForValue(projEndpointInfo.yVal);
+          if (px >= chartArea.left && px <= chartArea.right) {
+            const text = projEndpointInfo.label;
+            c.font = "700 10.5px 'JetBrains Mono', monospace";
+            const textW = c.measureText(text).width;
+            const padX = 7;
+            const pillW = textW + padX * 2;
+            const pillH = 20;
+            const pillX = Math.max(chartArea.left + 6, Math.min(chartArea.right - pillW - 6, px - pillW - 10));
+            const rawY = py - pillH - 8;
+            const pillY = Math.max(chartArea.top + 6, Math.min(chartArea.bottom - pillH - 6, rawY < chartArea.top + 6 ? py + 10 : rawY));
+
+            c.setLineDash([]);
+            c.fillStyle = "rgba(6, 22, 16, 0.92)";
+            c.strokeStyle = projEndpointInfo.color || "#22d3ee";
+            c.lineWidth = 1.2;
+            c.beginPath();
+            if (c.roundRect) {
+              c.roundRect(pillX, pillY, pillW, pillH, 6);
+            } else {
+              c.rect(pillX, pillY, pillW, pillH);
+            }
+            c.fill();
+            c.stroke();
+
+            c.fillStyle = "#67e8f9";
+            c.textBaseline = "middle";
+            c.fillText(text, pillX + padX, pillY + pillH / 2 + 0.5);
+          }
+        }
         c.restore();
       }
     };
