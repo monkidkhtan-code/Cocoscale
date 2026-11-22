@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.59").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.60").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -719,6 +719,12 @@ class CocoScaleApp {
               if (cloud.cloudCalibration && typeof cloud.cloudCalibration === "object" && cloud.cloudCalibration.fieldCapacityKg) {
                 st.calibration = { ...st.calibration, ...cloud.cloudCalibration };
               }
+              if (cloud.learnedDryBack && typeof cloud.learnedDryBack === "object" && Array.isArray(cloud.learnedDryBack.hours)) {
+                const localLearned = this.loadLearnedDryBackModel(st.id);
+                if ((cloud.learnedDryBack.totalSamples || 0) > (localLearned.totalSamples || 0)) {
+                  this.saveLearnedDryBackModel(st.id, cloud.learnedDryBack);
+                }
+              }
               updatedLocal = true;
             }
           }
@@ -836,6 +842,9 @@ class CocoScaleApp {
       const existing = this.stationData[st.id]?.rawSync || { ok: false, reason: "PENDING", rows: [] };
       const rows = existing.rows || [];
       const analysis = MoistureEngine.analyzeSeries(rows, st, this.config.staleMinutes);
+      if (analysis?.enrichedRows?.length > 1) {
+        this.updateLearnedDryBackModel(st, analysis.enrichedRows);
+      }
       this.stationWeightRows[st.id] = rows;
       this.stationData[st.id] = {
         rawSync: existing,
@@ -1282,6 +1291,102 @@ class CocoScaleApp {
   }
 
   /**
+   * Loads per-station empirical hourly dry-back probability model (accumulating from 2026-11-22 onward).
+   */
+  loadLearnedDryBackModel(stationId) {
+    const epochMs = new Date(2026, 10, 22, 0, 0, 0, 0).getTime();
+    const key = `kh_cocoscale_learned_db_v1_${stationId}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.hours) && parsed.hours.length === 24) {
+          return parsed;
+        }
+      }
+    } catch (_) {}
+    return {
+      epochMs,
+      lastProcessedTsMs: 0,
+      totalSamples: 0,
+      hours: Array.from({ length: 24 }, () => ({ n: 0, meanMl: 0, m2: 0 }))
+    };
+  }
+
+  saveLearnedDryBackModel(stationId, model) {
+    try {
+      localStorage.setItem(`kh_cocoscale_learned_db_v1_${stationId}`, JSON.stringify(model));
+    } catch (_) {}
+  }
+
+  /**
+   * Accumulates clean non-irrigating dry-back intervals from 2026-11-22 onward into hourly mean & variance.
+   */
+  updateLearnedDryBackModel(st, enrichedRows) {
+    if (!st || !Array.isArray(enrichedRows) || enrichedRows.length < 2) return;
+    const model = this.loadLearnedDryBackModel(st.id);
+    const epochMs = model.epochMs || new Date(2026, 10, 22, 0, 0, 0, 0).getTime();
+    let lastTs = model.lastProcessedTsMs || 0;
+    let added = 0;
+
+    for (let i = 1; i < enrichedRows.length; i++) {
+      const r1 = enrichedRows[i - 1];
+      const r2 = enrichedRows[i];
+      const t1 = r1.ts.getTime();
+      const t2 = r2.ts.getTime();
+      if (t1 < epochMs || t2 <= lastTs) continue;
+
+      const dtHr = (t2 - t1) / 3600000;
+      if (dtHr < 0.15 || dtHr > 1.5) continue;
+
+      const deltaKg = r1.weightKg - r2.weightKg;
+      // Skip irrigation/rain intervals (> +5 mL weight gain)
+      if (deltaKg < -0.005) {
+        lastTs = Math.max(lastTs, t2);
+        continue;
+      }
+
+      const lossMlPerHr = Math.max(0, (deltaKg * 1000) / dtHr);
+      if (lossMlPerHr > 500) {
+        lastTs = Math.max(lastTs, t2);
+        continue;
+      }
+
+      const midHour = new Date((t1 + t2) / 2).getHours();
+      const b = model.hours[midHour];
+      // Welford's online mean & M2 with recency cap (n <= 60) so model adapts as plant grows
+      const prevMean = b.meanMl || 0;
+      if (b.n < 60) {
+        b.n += 1;
+        const delta = lossMlPerHr - prevMean;
+        b.meanMl = prevMean + delta / b.n;
+        b.m2 = (b.m2 || 0) + delta * (lossMlPerHr - b.meanMl);
+      } else {
+        const alpha = 1 / 60;
+        b.meanMl = (1 - alpha) * prevMean + alpha * lossMlPerHr;
+        const varOld = (b.m2 || 0) / 59;
+        const varNew = (1 - alpha) * varOld + alpha * Math.pow(lossMlPerHr - b.meanMl, 2);
+        b.m2 = varNew * 59;
+      }
+
+      model.totalSamples = (model.totalSamples || 0) + 1;
+      lastTs = Math.max(lastTs, t2);
+      added += 1;
+    }
+
+    if (added > 0) {
+      model.lastProcessedTsMs = lastTs;
+      this.saveLearnedDryBackModel(st.id, model);
+      const plotKey = st.deviceControl?.plotKey || st.sheetSource?.tabName || "Plot1";
+      fetch(`${DeviceService.FIREBASE_BASE_URL}/${encodeURIComponent(plotKey)}.json`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ learnedDryBack: model })
+      }).catch(() => {});
+    }
+  }
+
+  /**
    * Relative solar/transpiration weight (0.04 at night -> 1.00 peak sun -> smooth cosine dusk taper 16:30 to 18:50).
    */
   getSolarWeightAtMs(ms) {
@@ -1298,18 +1403,41 @@ class CocoScaleApp {
   }
 
   /**
-   * Integrates solar-weighted dry-back loss (kg) from fromMs to toMs in 10-minute steps.
+   * Integrates solar-weighted + empirically learned dry-back loss (kg) and 1-sigma uncertainty from fromMs to toMs.
    */
-  integrateDryBackKg(fromMs, toMs, baseRateKgPerHr) {
-    if (!(toMs > fromMs) || !(baseRateKgPerHr > 0)) return 0;
+  integrateDryBackStats(fromMs, toMs, baseRateKgPerHr, stationId = null) {
+    if (!(toMs > fromMs) || !(baseRateKgPerHr > 0)) return { meanKg: 0, stdKg: 0, totalSamples: 0 };
+    const model = stationId ? this.loadLearnedDryBackModel(stationId) : null;
+    const totalSamples = model?.totalSamples || 0;
     const steps = Math.max(1, Math.ceil((toMs - fromMs) / (10 * 60 * 1000)));
     const dtHr = (toMs - fromMs) / 3600000 / steps;
-    let totalKg = 0;
+    let meanKg = 0;
+    let stdSumKg = 0;
+
     for (let i = 0; i < steps; i++) {
       const midMs = fromMs + (i + 0.5) * (dtHr * 3600000);
-      totalKg += baseRateKgPerHr * this.getSolarWeightAtMs(midMs) * dtHr;
+      const priorKgHr = baseRateKgPerHr * this.getSolarWeightAtMs(midMs);
+      const hr = new Date(midMs).getHours();
+      const b = model?.hours?.[hr];
+
+      if (b && b.n > 0) {
+        const wEmp = Math.min(0.80, b.n / (b.n + 6));
+        const empKgHr = b.meanMl / 1000;
+        const blendedKgHr = (1 - wEmp) * priorKgHr + wEmp * empKgHr;
+        const empStdKgHr = b.n >= 3 ? Math.sqrt((b.m2 || 0) / (b.n - 1)) / 1000 : priorKgHr * 0.22;
+        const blendedStdKgHr = (1 - wEmp) * (priorKgHr * 0.22) + wEmp * empStdKgHr;
+        meanKg += blendedKgHr * dtHr;
+        stdSumKg += blendedStdKgHr * dtHr;
+      } else {
+        meanKg += priorKgHr * dtHr;
+        stdSumKg += priorKgHr * 0.22 * dtHr;
+      }
     }
-    return totalKg;
+    return { meanKg, stdKg: stdSumKg * 0.75, totalSamples };
+  }
+
+  integrateDryBackKg(fromMs, toMs, baseRateKgPerHr, stationId = null) {
+    return this.integrateDryBackStats(fromMs, toMs, baseRateKgPerHr, stationId).meanKg;
   }
 
   renderDripDecision(st, m, rp, analysis = null) {
@@ -1351,7 +1479,7 @@ class CocoScaleApp {
     const target6PmMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0, 0).getTime();
     const rawRateMl = analysis?.dryingRateMlPerHr || 0;
     const rateKgPerHr = rawRateMl >= 20 ? rawRateMl / 1000 : 0.085;
-    const projLossKg = this.integrateDryBackKg(now.getTime(), target6PmMs, rateKgPerHr);
+    const projLossKg = this.integrateDryBackKg(now.getTime(), target6PmMs, rateKgPerHr, st.id);
     const proj6PmKg = Math.max(tareKg, m.rawWeightKg - projLossKg);
 
     let isDryBackReached = false;
@@ -1689,29 +1817,36 @@ class CocoScaleApp {
         const rateLabel = `${Math.round(rateKgPerHr * 1000)} mL/hr${usedFallback ? " est." : ""}`;
 
         if (latestMs < target6PmMs) {
-          const projLoss6PmKg = this.integrateDryBackKg(latestMs, target6PmMs, rateKgPerHr);
-          const proj6PmKg = Math.max(tareKg, latestRow.weightKg - projLoss6PmKg);
+          const projStats6Pm = this.integrateDryBackStats(latestMs, target6PmMs, rateKgPerHr, st.id);
+          const proj6PmKg = Math.max(tareKg, latestRow.weightKg - projStats6Pm.meanKg);
+          const proj6PmLowKg = Math.max(tareKg, proj6PmKg - projStats6Pm.stdKg);
+          const proj6PmHighKg = Math.min(refM.fieldCapacityRawKg, proj6PmKg + projStats6Pm.stdKg);
           const proj6PmMoistPct = Math.max(0, Math.min(100, ((proj6PmKg - tareKg) / waterCapKg) * 100));
           const proj6PmDryBackPct = 100 - proj6PmMoistPct;
 
           const toChartVal = (kg) => isWeight ? kg : Math.max(0, Math.min(100, ((kg - tareKg) / waterCapKg) * 100));
 
-          // Build solar-weighted curve every 15m from now -> 18:00 (dot) -> 19:00 (flat dusk tail)
+          // Build solar + learned empirical curve every 15m from now -> 18:00 (dot) -> 19:00 (flat dusk tail) + 68% probability cone
           const stepMs = 15 * 60 * 1000;
           const projPts = [];
+          const projUpperPts = [];
+          const projLowerPts = [];
           const projRadii = [];
-          for (let t = latestMs; t < target6PmMs; t += stepMs) {
-            const k = Math.max(tareKg, latestRow.weightKg - this.integrateDryBackKg(latestMs, t, rateKgPerHr));
-            projPts.push({ x: t, y: toChartVal(k) });
-            projRadii.push(0);
-          }
-          projPts.push({ x: target6PmMs, y: toChartVal(proj6PmKg) });
-          projRadii.push(5);
-          for (let t = target6PmMs + stepMs; t <= target7PmMs; t += stepMs) {
-            const k = Math.max(tareKg, latestRow.weightKg - this.integrateDryBackKg(latestMs, t, rateKgPerHr));
-            projPts.push({ x: t, y: toChartVal(k) });
-            projRadii.push(0);
-          }
+
+          const pushProjStep = (t, isTargetDot = false) => {
+            const s = this.integrateDryBackStats(latestMs, t, rateKgPerHr, st.id);
+            const midKg = Math.max(tareKg, latestRow.weightKg - s.meanKg);
+            const hiKg = Math.min(refM.fieldCapacityRawKg, midKg + s.stdKg);
+            const loKg = Math.max(tareKg, midKg - s.stdKg);
+            projPts.push({ x: t, y: toChartVal(midKg) });
+            projUpperPts.push({ x: t, y: toChartVal(hiKg) });
+            projLowerPts.push({ x: t, y: toChartVal(loKg) });
+            projRadii.push(isTargetDot ? 5 : 0);
+          };
+
+          for (let t = latestMs; t < target6PmMs; t += stepMs) pushProjStep(t, false);
+          pushProjStep(target6PmMs, true);
+          for (let t = target6PmMs + stepMs; t <= target7PmMs; t += stepMs) pushProjStep(t, false);
 
           projEndpointInfo = {
             xMs: target6PmMs,
@@ -1719,6 +1854,31 @@ class CocoScaleApp {
             label: isWeight ? `18:00 · ${proj6PmKg.toFixed(2)} kg` : `18:00 · ${proj6PmMoistPct.toFixed(0)}%`,
             color: "#22d3ee"
           };
+
+          // Subtle 68% Probability Cone around Projected Dry-Back
+          datasets.push({
+            label: "Proj Upper (68% Prob.)",
+            data: projUpperPts,
+            borderColor: "transparent",
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+            tension: 0.25,
+            yAxisID: "y",
+            order: 2
+          });
+          datasets.push({
+            label: "Proj Lower (68% Prob.)",
+            data: projLowerPts,
+            borderColor: "transparent",
+            backgroundColor: "rgba(34, 211, 238, 0.11)",
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: "-1",
+            tension: 0.25,
+            yAxisID: "y",
+            order: 2
+          });
 
           datasets.push({
             label: "Projected Dry-Back (→ 6PM)",
@@ -1735,20 +1895,20 @@ class CocoScaleApp {
             order: 0
           });
 
-          // Backward solar-weighted Stop-Drip Cutoff curve from 18:00 target weight (bending flat after 17:00 -> 19:00)
+          // Backward solar + learned Stop-Drip Cutoff curve from 18:00 target weight (bending flat after 17:00 -> 19:00)
           const morning7AmMs = new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate(), 7, 0, 0, 0).getTime();
           const cutoffStartMs = Math.max(morning7AmMs, latestMs - 3 * 3600000);
           const cutoffPts = [];
           const cutoffRadii = [];
           for (let t = cutoffStartMs; t < target6PmMs; t += stepMs) {
-            const k = target6PmKg + this.integrateDryBackKg(t, target6PmMs, rateKgPerHr);
+            const k = target6PmKg + this.integrateDryBackKg(t, target6PmMs, rateKgPerHr, st.id);
             cutoffPts.push({ x: t, y: toChartVal(k) });
             cutoffRadii.push(0);
           }
           cutoffPts.push({ x: target6PmMs, y: isWeight ? target6PmKg : targetMoisturePct });
           cutoffRadii.push(4.5);
           for (let t = target6PmMs + stepMs; t <= target7PmMs; t += stepMs) {
-            const k = Math.max(tareKg, target6PmKg - this.integrateDryBackKg(target6PmMs, t, rateKgPerHr));
+            const k = Math.max(tareKg, target6PmKg - this.integrateDryBackKg(target6PmMs, t, rateKgPerHr, st.id));
             cutoffPts.push({ x: t, y: toChartVal(k) });
             cutoffRadii.push(0);
           }
@@ -1772,17 +1932,18 @@ class CocoScaleApp {
           allX.push(target7PmMs + 15 * 60 * 1000);
 
           const excessKg = proj6PmKg - target6PmKg;
+          const learnedTag = ` · 📊 Learned ${projStats6Pm.totalSamples} pts (68%: ${proj6PmLowKg.toFixed(2)}–${proj6PmHighKg.toFixed(2)} kg)`;
           if (advice6PmEl) {
             if (excessKg > 0.03) {
               advice6PmEl.style.color = "#fbbf24";
-              advice6PmEl.textContent = `🛑 Stop Drip Now — Proj 6PM: ${proj6PmDryBackPct.toFixed(1)}% (${proj6PmKg.toFixed(2)} kg, +${Math.round(excessKg * 1000)} mL over target @ ${rateLabel})`;
+              advice6PmEl.textContent = `🛑 Stop Drip Now — Proj 6PM: ${proj6PmDryBackPct.toFixed(1)}% (${proj6PmKg.toFixed(2)} kg, +${Math.round(excessKg * 1000)} mL over target @ ${rateLabel})${learnedTag}`;
             } else if (excessKg >= -0.05) {
               advice6PmEl.style.color = "#4ade80";
-              advice6PmEl.textContent = `✅ Stop Drip Now — On track for ${proj6PmDryBackPct.toFixed(1)}% dry-back at 6PM (${proj6PmKg.toFixed(2)} kg @ ${rateLabel})`;
+              advice6PmEl.textContent = `✅ Stop Drip Now — On track for ${proj6PmDryBackPct.toFixed(1)}% dry-back at 6PM (${proj6PmKg.toFixed(2)} kg @ ${rateLabel})${learnedTag}`;
             } else {
               const roomMl = Math.round(Math.abs(excessKg) * 1000);
               advice6PmEl.style.color = "#38bdf8";
-              advice6PmEl.textContent = `💧 ${roomMl} mL room before 6PM target · Proj 6PM: ${proj6PmDryBackPct.toFixed(1)}% (${proj6PmKg.toFixed(2)} kg @ ${rateLabel})`;
+              advice6PmEl.textContent = `💧 ${roomMl} mL room before 6PM target · Proj 6PM: ${proj6PmDryBackPct.toFixed(1)}% (${proj6PmKg.toFixed(2)} kg @ ${rateLabel})${learnedTag}`;
             }
           }
         } else if (advice6PmEl) {
