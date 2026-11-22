@@ -22,6 +22,7 @@ class CocoScaleApp {
     this.showLuxOverlay = this.config.chartPrefs?.showLux !== undefined ? Boolean(this.config.chartPrefs.showLux) : true;
     this.showTempOverlay = this.config.chartPrefs?.showTemp !== undefined ? Boolean(this.config.chartPrefs.showTemp) : true;
     this.showDryBackProj = this.config.chartPrefs?.showDryBackProj !== undefined ? Boolean(this.config.chartPrefs.showDryBackProj) : true;
+    this.show6PmBar = false; // Settings bar starts collapsed; projection lines stay visible on graph
     this.targetDryBack6PmPct = Number.isFinite(Number(this.config.chartPrefs?.targetDryBack6PmPct))
       ? Number(this.config.chartPrefs.targetDryBack6PmPct)
       : null;
@@ -42,7 +43,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.45").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.46").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -294,39 +295,61 @@ class CocoScaleApp {
       });
     }
 
-    // 6:00 PM Dry-Back Projection Toggle & Target Stepper
+    // 6:00 PM Dry-Back Projection Bar Toggle & Target Stepper (Cross-device Firebase synced)
     const btnToggle6Pm = document.getElementById("btn-toggle-6pm-proj");
     const bar6Pm = document.getElementById("chart-6pm-bar");
     const input6Pm = document.getElementById("input-6pm-target-pct");
     const btnMinus6Pm = document.getElementById("btn-6pm-target-minus");
     const btnPlus6Pm = document.getElementById("btn-6pm-target-plus");
+    const btnLines6Pm = document.getElementById("btn-6pm-lines-toggle");
+
+    const sync6PmPrefsToCloud = () => {
+      this.config.chartPrefs = {
+        ...(this.config.chartPrefs || {}),
+        showDryBackProj: this.showDryBackProj,
+        targetDryBack6PmPct: this.targetDryBack6PmPct
+      };
+      ConfigStore.save(this.config);
+      const st = this.getSelectedStation();
+      const plotKey = st?.deviceControl?.plotKey;
+      if (plotKey && typeof DeviceService !== "undefined") {
+        fetch(`${DeviceService.FIREBASE_BASE_URL}/${encodeURIComponent(plotKey)}/appPrefs.json`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            showDryBackProj: this.showDryBackProj,
+            targetDryBack6PmPct: this.targetDryBack6PmPct,
+            updatedAt: new Date().toISOString()
+          })
+        }).catch(() => {});
+      }
+    };
 
     const apply6PmTargetPct = (val) => {
       const clamped = Math.min(75, Math.max(5, Math.round(Number(val) || 35)));
       this.targetDryBack6PmPct = clamped;
       if (input6Pm) input6Pm.value = clamped;
-      this.config.chartPrefs = {
-        ...(this.config.chartPrefs || {}),
-        showDryBackProj: this.showDryBackProj,
-        targetDryBack6PmPct: clamped
-      };
-      ConfigStore.save(this.config);
+      sync6PmPrefsToCloud();
       this.renderChart();
     };
 
     if (btnToggle6Pm && bar6Pm) {
-      btnToggle6Pm.classList.toggle("active", this.showDryBackProj);
-      bar6Pm.classList.toggle("hidden", !this.showDryBackProj);
+      btnToggle6Pm.classList.toggle("active", this.show6PmBar);
+      bar6Pm.classList.toggle("hidden", !this.show6PmBar);
       btnToggle6Pm.addEventListener("click", () => {
+        this.show6PmBar = !this.show6PmBar;
+        btnToggle6Pm.classList.toggle("active", this.show6PmBar);
+        bar6Pm.classList.toggle("hidden", !this.show6PmBar);
+      });
+    }
+    if (btnLines6Pm) {
+      btnLines6Pm.classList.toggle("active", this.showDryBackProj);
+      btnLines6Pm.textContent = this.showDryBackProj ? "Lines: ON" : "Lines: OFF";
+      btnLines6Pm.addEventListener("click", () => {
         this.showDryBackProj = !this.showDryBackProj;
-        btnToggle6Pm.classList.toggle("active", this.showDryBackProj);
-        bar6Pm.classList.toggle("hidden", !this.showDryBackProj);
-        this.config.chartPrefs = {
-          ...(this.config.chartPrefs || {}),
-          showDryBackProj: this.showDryBackProj,
-          targetDryBack6PmPct: this.targetDryBack6PmPct
-        };
-        ConfigStore.save(this.config);
+        btnLines6Pm.classList.toggle("active", this.showDryBackProj);
+        btnLines6Pm.textContent = this.showDryBackProj ? "Lines: ON" : "Lines: OFF";
+        sync6PmPrefsToCloud();
         this.renderChart();
       });
     }
@@ -705,11 +728,25 @@ class CocoScaleApp {
         minKg: this.chartYMinKg,
         maxKg: this.chartYMaxKg
       };
+      // Apply cross-device 6PM projection prefs from Firebase if available
+      const activePlotKey = this.getSelectedStation()?.deviceControl?.plotKey;
+      const cloudAppPrefs = activePlotKey ? this.deviceCloudMap[activePlotKey]?.appPrefs : null;
+      if (cloudAppPrefs) {
+        if (cloudAppPrefs.targetDryBack6PmPct !== undefined && Number.isFinite(Number(cloudAppPrefs.targetDryBack6PmPct))) {
+          this.targetDryBack6PmPct = Number(cloudAppPrefs.targetDryBack6PmPct);
+        }
+        if (cloudAppPrefs.showDryBackProj !== undefined) {
+          this.showDryBackProj = Boolean(cloudAppPrefs.showDryBackProj);
+        }
+      }
+
       this.config.chartPrefs = {
         showLux: this.showLuxOverlay,
         showTemp: this.showTempOverlay,
         mode: this.chartMode,
-        hours: this.chartHours
+        hours: this.chartHours,
+        showDryBackProj: this.showDryBackProj,
+        targetDryBack6PmPct: this.targetDryBack6PmPct
       };
       ConfigStore.save(this.config);
       this.syncChartToolbarUI();
@@ -1494,7 +1531,11 @@ class CocoScaleApp {
       if (targetKgEl) targetKgEl.textContent = `(${target6PmKg.toFixed(2)} kg / ${targetMoisturePct}% moist.)`;
 
       if (this.showDryBackProj && activeWeightRows.length > 0 && !this.chartSelectedDay) {
-        if (bar6PmEl) bar6PmEl.classList.remove("hidden");
+        const btnLinesEl = document.getElementById("btn-6pm-lines-toggle");
+        if (btnLinesEl) {
+          btnLinesEl.classList.toggle("active", true);
+          btnLinesEl.textContent = "Lines: ON";
+        }
         const latestRow = activeWeightRows[activeWeightRows.length - 1];
         const latestMs = latestRow.ts.getTime();
         const latestDate = new Date(latestMs);
@@ -1579,8 +1620,9 @@ class CocoScaleApp {
           advice6PmEl.style.color = curDryBack >= targetDryBackPct ? "#4ade80" : "#fbbf24";
           advice6PmEl.textContent = `Past 6:00 PM · Current dry-back: ${curDryBack.toFixed(1)}% (${latestRow.weightKg.toFixed(2)} kg vs ${targetDryBackPct}% target)`;
         }
-      } else if (bar6PmEl && (!this.showDryBackProj || this.chartMode === "compare")) {
-        bar6PmEl.classList.add("hidden");
+      } else if (advice6PmEl && !this.showDryBackProj) {
+        advice6PmEl.style.color = "var(--text-secondary)";
+        advice6PmEl.textContent = "Projection lines hidden on graph (click Lines: ON to show).";
       }
     }
 
