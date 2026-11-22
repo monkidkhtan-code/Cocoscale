@@ -29,6 +29,8 @@ class CocoScaleApp {
     this.batteryHours = 12; // Default 12H
     this.batteryChart = null;
     this.chartInstance = null;
+    this.waterBalanceChart = null;
+    this.wbChartMode = "daily7"; // 'daily7' | 'daily14' | 'hourly'
     this.pollTimer = null;
     this.countdownTimer = null;
     this.draftStations = null;
@@ -43,7 +45,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.46").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.47").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -274,6 +276,18 @@ class CocoScaleApp {
       btnEvLabel.addEventListener("click", () => {
         this.eventsSelectedDay = getLocalMidnight();
         this.renderDetails();
+      });
+    }
+
+    // Water Balance & Transpiration Chart Mode Toggle
+    const wbGroup = document.getElementById("wb-chart-mode-group");
+    if (wbGroup) {
+      wbGroup.addEventListener("click", (e) => {
+        const btn = e.target.closest(".pill-btn");
+        if (!btn) return;
+        this.wbChartMode = btn.dataset.wbmode || "daily7";
+        wbGroup.querySelectorAll(".pill-btn").forEach((b) => b.classList.toggle("active", b === btn));
+        this.renderWaterBalanceChart();
       });
     }
 
@@ -806,6 +820,7 @@ class CocoScaleApp {
     this.renderHero();
     this.renderChart();
     this.renderDetails();
+    this.renderWaterBalanceChart();
     if (window.lucide) window.lucide.createIcons();
   }
 
@@ -2123,6 +2138,10 @@ class CocoScaleApp {
       }).join("");
     }
 
+    if (this.wbChartMode === "hourly") {
+      this.renderWaterBalanceChart();
+    }
+
     // Telemetry table (latest 80 rows newest first)
     const rows = analysis.enrichedRows;
     const recentRows = rows.slice(-80).reverse();
@@ -2143,6 +2162,149 @@ class CocoScaleApp {
         </tr>
       `;
     }).join("");
+  }
+
+  renderWaterBalanceChart() {
+    const canvas = document.getElementById("water-balance-chart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (this.waterBalanceChart) {
+      this.waterBalanceChart.destroy();
+      this.waterBalanceChart = null;
+    }
+
+    const st = this.getSelectedStation();
+    const rows = this.stationData[st.id]?.analysis?.enrichedRows || [];
+    const subEl = document.getElementById("wb-chart-sub");
+
+    const labels = [];
+    const inVals = [];
+    const outVals = [];
+
+    if (this.wbChartMode === "hourly") {
+      const now = new Date();
+      const dayStart = this.eventsSelectedDay
+        ? new Date(this.eventsSelectedDay.getTime())
+        : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const dayStartMs = dayStart.getTime();
+      const dayEndMs = dayStartMs + 24 * 3600 * 1000 - 1;
+      const dayLbl = dayStart.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      if (subEl) subEl.textContent = `Hourly Liquid In vs Evap. & Plant Uptake on ${dayLbl} (mL/hr)`;
+
+      const hourlyIn = new Array(24).fill(0);
+      const hourlyOut = new Array(24).fill(0);
+      for (let i = 1; i < rows.length; i++) {
+        const prev = rows[i - 1];
+        const curr = rows[i];
+        const t = curr.ts.getTime();
+        if (t < dayStartMs || t > dayEndMs) continue;
+        const hr = curr.ts.getHours();
+        const dKg = curr.weightKg - prev.weightKg;
+        if (dKg > 0.005) hourlyIn[hr] += Math.round(dKg * 1000);
+        else if (dKg <= -0.005) hourlyOut[hr] += Math.round(Math.abs(dKg) * 1000);
+      }
+      for (let h = 0; h < 24; h++) {
+        labels.push(`${String(h).padStart(2, "0")}:00`);
+        inVals.push(hourlyIn[h]);
+        outVals.push(hourlyOut[h]);
+      }
+    } else {
+      const numDays = this.wbChartMode === "daily14" ? 14 : 7;
+      if (subEl) subEl.textContent = `Daily Total Liquid In vs Evap. & Plant Uptake — Last ${numDays} Days (mL/day)`;
+
+      const dayMap = new Map();
+      const today = new Date();
+      for (let dOff = numDays - 1; dOff >= 0; dOff--) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - dOff);
+        const key = MoistureEngine.toLocalDayKey(d);
+        dayMap.set(key, {
+          label: d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+          inMl: 0,
+          outMl: 0
+        });
+      }
+
+      for (let i = 1; i < rows.length; i++) {
+        const prev = rows[i - 1];
+        const curr = rows[i];
+        const key = MoistureEngine.toLocalDayKey(curr.ts);
+        const bucket = dayMap.get(key);
+        if (!bucket) continue;
+        const dKg = curr.weightKg - prev.weightKg;
+        if (dKg > 0.005) bucket.inMl += Math.round(dKg * 1000);
+        else if (dKg <= -0.005) bucket.outMl += Math.round(Math.abs(dKg) * 1000);
+      }
+
+      for (const b of dayMap.values()) {
+        labels.push(b.label);
+        inVals.push(b.inMl);
+        outVals.push(b.outMl);
+      }
+    }
+
+    this.waterBalanceChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "💧 Liquid In (mL)",
+            data: inVals,
+            backgroundColor: "rgba(56, 189, 248, 0.72)",
+            borderColor: "#38bdf8",
+            borderWidth: 1,
+            borderRadius: 4
+          },
+          {
+            label: "☀️ Evap. & Uptake (mL)",
+            data: outVals,
+            backgroundColor: "rgba(251, 191, 36, 0.72)",
+            borderColor: "#fbbf24",
+            borderWidth: 1,
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            labels: { color: "#cbd5e1", font: { family: "'Plus Jakarta Sans'", size: 11 } }
+          },
+          tooltip: {
+            backgroundColor: "rgba(9, 15, 22, 0.95)",
+            borderColor: "rgba(148, 163, 184, 0.25)",
+            borderWidth: 1,
+            callbacks: {
+              afterBody(items) {
+                if (items.length < 2) return [];
+                const inV = items[0].parsed.y || 0;
+                const outV = items[1].parsed.y || 0;
+                const net = inV - outV;
+                return [` Net Balance: ${net >= 0 ? "+" : ""}${net.toLocaleString()} mL`];
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: "#9bb8a5", font: { family: "'JetBrains Mono'", size: 10 } },
+            grid: { display: false }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: "#9bb8a5",
+              font: { family: "'JetBrains Mono'", size: 10 },
+              callback: (v) => `${Number(v).toLocaleString()} mL`
+            },
+            grid: { color: "rgba(148, 163, 184, 0.08)" }
+          }
+        }
+      }
+    });
   }
 
   setCurrentAsFieldCapacity() {
