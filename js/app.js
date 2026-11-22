@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.60").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.61").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -2056,7 +2056,7 @@ class CocoScaleApp {
           });
         }
 
-        // Sleek floating pill positioned in open space above-right of 18:00 dot (never blocking descending lines)
+        // Sleek floating pill pinned high in the top-right open sky (never blocking data/cutoff lines on any timeframe)
         if (projEndpointInfo && scales.x) {
           const px = scales.x.getPixelForValue(projEndpointInfo.xMs);
           const py = scales.y.getPixelForValue(projEndpointInfo.yVal);
@@ -2067,24 +2067,24 @@ class CocoScaleApp {
             const padX = 6;
             const pillW = textW + padX * 2;
             const pillH = 17;
-            const pillX = Math.max(chartArea.left + 6, Math.min(chartArea.right - pillW - 6, px - pillW * 0.25));
-            const placeBelow = (py - pillH - 14) < (chartArea.top + 4);
-            const pillY = placeBelow
-              ? Math.min(chartArea.bottom - pillH - 6, py + 12)
-              : Math.max(chartArea.top + 4, py - pillH - 14);
+            const pillX = Math.max(chartArea.left + 6, Math.min(chartArea.right - pillW - 6, px - pillW * 0.5));
+            const pillY = chartArea.top + 22;
 
-            // Subtle leader line tying pill to the 18:00 dot
-            c.beginPath();
-            c.setLineDash([2, 2]);
-            c.strokeStyle = "rgba(34, 211, 238, 0.55)";
-            c.lineWidth = 1;
-            c.moveTo(px, placeBelow ? py + 5 : py - 5);
-            c.lineTo(px, placeBelow ? pillY : pillY + pillH);
-            c.stroke();
+            // Subtle vertical leader line dropping from pill down to the 18:00 dot
+            const dotY = Math.max(chartArea.top + 4, Math.min(chartArea.bottom - 4, py));
+            if (dotY - 6 > pillY + pillH) {
+              c.beginPath();
+              c.setLineDash([2, 3]);
+              c.strokeStyle = "rgba(34, 211, 238, 0.35)";
+              c.lineWidth = 1;
+              c.moveTo(px, pillY + pillH);
+              c.lineTo(px, dotY - 5);
+              c.stroke();
+            }
 
             c.setLineDash([]);
-            c.fillStyle = "rgba(6, 22, 16, 0.78)";
-            c.strokeStyle = "rgba(34, 211, 238, 0.75)";
+            c.fillStyle = "rgba(6, 22, 16, 0.82)";
+            c.strokeStyle = "rgba(34, 211, 238, 0.78)";
             c.lineWidth = 1;
             c.beginPath();
             if (c.roundRect) {
