@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.54").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.55").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -101,6 +101,10 @@ class CocoScaleApp {
       btnChangelog.addEventListener("click", () => this.openModal("modal-changelog"));
     }
     document.getElementById("btn-open-calibrate").addEventListener("click", () => this.openCalibrateModal());
+    const btnOpenScaleCal = document.getElementById("btn-open-scale-cal");
+    if (btnOpenScaleCal) btnOpenScaleCal.addEventListener("click", () => this.openScaleCalModal());
+    const btnSaveScaleCal = document.getElementById("btn-save-scale-cal");
+    if (btnSaveScaleCal) btnSaveScaleCal.addEventListener("click", () => this.saveScaleCalOnly());
     document.getElementById("btn-set-fc-now").addEventListener("click", () => this.setCurrentAsFieldCapacity());
     document.getElementById("btn-export-csv").addEventListener("click", () => this.exportActiveCsv());
 
@@ -2465,6 +2469,57 @@ class CocoScaleApp {
     this.recomputeAllStations();
     this.renderAll();
     this.showToast(`Locked ${rawKg.toFixed(2)} kg as 100% Field Capacity for ${st.shortName}!`);
+  }
+
+  openScaleCalModal() {
+    const st = this.getSelectedStation();
+    const cal = st.calibration;
+    const titleEl = document.getElementById("scale-cal-modal-title");
+    if (titleEl) titleEl.textContent = `⚖️ Scale Calibration — ${st.shortName}`;
+
+    const readingInput = document.getElementById("cal-scale-reading-input");
+    const multInput = document.getElementById("cal-scale-multiplier");
+    const offsetInput = document.getElementById("cal-scale-offset");
+    const knownInput = document.getElementById("cal-known-weight-input");
+    const resBanner = document.getElementById("cal-hw-result-banner");
+
+    if (multInput) multInput.value = (cal.scaleMultiplier !== undefined ? cal.scaleMultiplier : 1.0).toFixed(4);
+    if (offsetInput) offsetInput.value = (cal.scaleOffset !== undefined ? cal.scaleOffset : 0.0).toFixed(3);
+    if (knownInput) knownInput.value = "";
+    if (resBanner) resBanner.style.display = "none";
+
+    const state = this.stationData[st.id];
+    const latestRaw = state?.analysis?.latest?.weightKg;
+    if (readingInput) {
+      const m = cal.scaleMultiplier || 1.0;
+      const o = cal.scaleOffset || 0.0;
+      readingInput.value = latestRaw !== undefined ? ((latestRaw * m) + o).toFixed(3) : "";
+    }
+    this.openModal("modal-scale-cal");
+  }
+
+  saveScaleCalOnly() {
+    const st = this.getSelectedStation();
+    const mult = parseFloat(document.getElementById("cal-scale-multiplier")?.value);
+    const offset = parseFloat(document.getElementById("cal-scale-offset")?.value);
+    st.calibration = {
+      ...st.calibration,
+      scaleMultiplier: (!isNaN(mult) && mult > 0) ? Number(mult.toFixed(4)) : 1.0,
+      scaleOffset: !isNaN(offset) ? Number(offset.toFixed(3)) : 0.0
+    };
+    ConfigStore.save(this.config);
+    const plotKey = st.deviceControl?.plotKey || st.sheetSource?.tabName || "Plot1";
+    const scriptUrl = st.deviceControl?.scriptUrl || this.config.defaultScriptUrl;
+    SheetsService.pushSheetBagCalibration(scriptUrl, plotKey, st.calibration);
+    fetch(`${DeviceService.FIREBASE_BASE_URL}/${encodeURIComponent(plotKey)}.json`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cloudCalibration: st.calibration })
+    }).catch(() => {});
+    this.closeModal("modal-scale-cal");
+    this.recomputeAllStations();
+    this.renderAll();
+    this.showToast(`Saved scale calibration for ${st.shortName}!`);
   }
 
   openCalibrateModal() {
