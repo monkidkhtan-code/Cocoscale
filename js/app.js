@@ -30,7 +30,7 @@ class CocoScaleApp {
     this.batteryChart = null;
     this.chartInstance = null;
     this.waterBalanceChart = null;
-    this.wbChartMode = "daily7"; // 'daily7' | 'daily14' | 'hourly'
+    this.wbChartMode = "hourly"; // 'daily7' | 'daily14' | 'hourly'
     this.wbSelectedDay = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate(), 0, 0, 0, 0);
     this.pollTimer = null;
     this.countdownTimer = null;
@@ -46,7 +46,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.48").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.49").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
