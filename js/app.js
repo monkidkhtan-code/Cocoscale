@@ -31,6 +31,7 @@ class CocoScaleApp {
     this.chartInstance = null;
     this.waterBalanceChart = null;
     this.wbChartMode = "daily7"; // 'daily7' | 'daily14' | 'hourly'
+    this.wbSelectedDay = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate(), 0, 0, 0, 0);
     this.pollTimer = null;
     this.countdownTimer = null;
     this.draftStations = null;
@@ -45,7 +46,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.47").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.48").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -279,7 +280,7 @@ class CocoScaleApp {
       });
     }
 
-    // Water Balance & Transpiration Chart Mode Toggle
+    // Water Balance & Transpiration Chart Mode Toggle & Day Navigator
     const wbGroup = document.getElementById("wb-chart-mode-group");
     if (wbGroup) {
       wbGroup.addEventListener("click", (e) => {
@@ -287,6 +288,30 @@ class CocoScaleApp {
         if (!btn) return;
         this.wbChartMode = btn.dataset.wbmode || "daily7";
         wbGroup.querySelectorAll(".pill-btn").forEach((b) => b.classList.toggle("active", b === btn));
+        this.renderWaterBalanceChart();
+      });
+    }
+    const btnWbPrev = document.getElementById("btn-wb-day-prev");
+    const btnWbLabel = document.getElementById("btn-wb-day-label");
+    const btnWbNext = document.getElementById("btn-wb-day-next");
+    if (btnWbPrev && btnWbLabel && btnWbNext) {
+      btnWbPrev.addEventListener("click", () => {
+        const d = new Date(this.wbSelectedDay.getTime());
+        d.setDate(d.getDate() - 1);
+        this.wbSelectedDay = d;
+        this.renderWaterBalanceChart();
+      });
+      btnWbNext.addEventListener("click", () => {
+        const today = getLocalMidnight();
+        const next = new Date(this.wbSelectedDay.getTime());
+        next.setDate(next.getDate() + 1);
+        if (next.getTime() <= today.getTime()) {
+          this.wbSelectedDay = next;
+          this.renderWaterBalanceChart();
+        }
+      });
+      btnWbLabel.addEventListener("click", () => {
+        this.wbSelectedDay = getLocalMidnight();
         this.renderWaterBalanceChart();
       });
     }
@@ -2181,14 +2206,26 @@ class CocoScaleApp {
     const inVals = [];
     const outVals = [];
 
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const anchorDay = this.wbSelectedDay ? new Date(this.wbSelectedDay.getTime()) : todayMidnight;
+    const diffDays = Math.round((todayMidnight.getTime() - anchorDay.getTime()) / (24 * 3600 * 1000));
+
+    const wbDayLabelEl = document.getElementById("btn-wb-day-label");
+    const wbDayNextEl = document.getElementById("btn-wb-day-next");
+    if (wbDayLabelEl) {
+      wbDayLabelEl.textContent = diffDays === 0
+        ? "Today"
+        : (diffDays === 1 ? "Yesterday" : anchorDay.toLocaleDateString("en-GB", { day: "numeric", month: "short" }));
+    }
+    if (wbDayNextEl) {
+      wbDayNextEl.classList.toggle("disabled", anchorDay.getTime() >= todayMidnight.getTime());
+    }
+
     if (this.wbChartMode === "hourly") {
-      const now = new Date();
-      const dayStart = this.eventsSelectedDay
-        ? new Date(this.eventsSelectedDay.getTime())
-        : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-      const dayStartMs = dayStart.getTime();
+      const dayStartMs = anchorDay.getTime();
       const dayEndMs = dayStartMs + 24 * 3600 * 1000 - 1;
-      const dayLbl = dayStart.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      const dayLbl = anchorDay.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
       if (subEl) subEl.textContent = `Hourly Liquid In vs Evap. & Plant Uptake on ${dayLbl} (mL/hr)`;
 
       const hourlyIn = new Array(24).fill(0);
@@ -2210,12 +2247,12 @@ class CocoScaleApp {
       }
     } else {
       const numDays = this.wbChartMode === "daily14" ? 14 : 7;
-      if (subEl) subEl.textContent = `Daily Total Liquid In vs Evap. & Plant Uptake — Last ${numDays} Days (mL/day)`;
+      const endLbl = diffDays === 0 ? "Today" : anchorDay.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      if (subEl) subEl.textContent = `Daily Total Liquid In vs Evap. & Plant Uptake — ${numDays} Days ending ${endLbl} (mL/day)`;
 
       const dayMap = new Map();
-      const today = new Date();
       for (let dOff = numDays - 1; dOff >= 0; dOff--) {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - dOff);
+        const d = new Date(anchorDay.getFullYear(), anchorDay.getMonth(), anchorDay.getDate() - dOff);
         const key = MoistureEngine.toLocalDayKey(d);
         dayMap.set(key, {
           label: d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),

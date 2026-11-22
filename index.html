@@ -24,18 +24,18 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <link rel="stylesheet" href="css/styles.css?v=1.9.47">
+  <link rel="stylesheet" href="css/styles.css?v=1.9.48">
 </head>
 <body>
   <div class="app-shell">
     <!-- Top Header (Compact) -->
     <header class="top-bar">
       <div class="brand-wrap">
-        <img src="assets/logo-mark.png?v=1.9.47" alt="KH CocoScale Logo" class="brand-icon">
+        <img src="assets/logo-mark.png?v=1.9.48" alt="KH CocoScale Logo" class="brand-icon">
         <div>
           <div class="brand-title">
             <span>KH CocoScale</span>
-            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.47</span>
+            <span class="version-badge mono" style="font-size:0.68rem; padding:0.12rem 0.42rem;">v1.9.48</span>
           </div>
           <div class="brand-sub">Cocopeat Moisture Monitoring System</div>
         </div>
@@ -672,10 +672,17 @@
           <div class="panel-title">💧 Liquid In vs Evap. &amp; Plant Uptake</div>
           <div id="wb-chart-sub" class="panel-subtitle">Daily total liquid gained vs transpired/evaporated (mL)</div>
         </div>
-        <div class="pill-group" id="wb-chart-mode-group">
-          <button type="button" class="pill-btn active" data-wbmode="daily7">Daily 7D</button>
-          <button type="button" class="pill-btn" data-wbmode="daily14">Daily 14D</button>
-          <button type="button" class="pill-btn" data-wbmode="hourly">Hourly (Day)</button>
+        <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+          <div class="pill-group" id="wb-chart-mode-group">
+            <button type="button" class="pill-btn active" data-wbmode="daily7">Daily 7D</button>
+            <button type="button" class="pill-btn" data-wbmode="daily14">Daily 14D</button>
+            <button type="button" class="pill-btn" data-wbmode="hourly">Hourly (Day)</button>
+          </div>
+          <div class="pill-group chart-day-nav" id="wb-day-nav" title="Browse different days">
+            <button type="button" id="btn-wb-day-prev" class="pill-btn" title="Previous day">◀</button>
+            <button type="button" id="btn-wb-day-label" class="pill-btn active mono" title="Jump to Today">Today</button>
+            <button type="button" id="btn-wb-day-next" class="pill-btn disabled" title="Next day">▶</button>
+          </div>
         </div>
       </div>
       <div class="chart-canvas-wrap" style="height: 245px;">
@@ -690,7 +697,7 @@
           <div>
             <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
               <span style="font-weight:800; font-size:0.9rem; color:var(--text-primary);">KH CocoScale</span>
-              <span class="version-badge mono">App v1.9.47 · ESP32 FW v2.17</span>
+              <span class="version-badge mono">App v1.9.48 · ESP32 FW v2.17</span>
               <div id="sync-status-pill" class="sync-pill" style="padding:0.2rem 0.55rem; font-size:0.71rem;">
                 <span class="sync-dot"></span>
                 <span id="sync-status-text">Connecting...</span>
@@ -1394,11 +1401,11 @@ function respond(obj, callback) {
   <!-- Toast Notification -->
   <div id="toast" style="position:fixed; bottom:1.25rem; right:1.25rem; background:#0f172a; border:1px solid rgba(45,212,191,0.45); color:#f1f5f9; padding:0.65rem 1rem; border-radius:10px; font-size:0.82rem; font-weight:600; box-shadow:0 12px 30px rgba(0,0,0,0.5); opacity:0; pointer-events:none; transition:opacity 0.22s ease; z-index:200;"></div>
 
-  <script src="js/config.js?v=1.9.47"></script>
-  <script src="js/moistureEngine.js?v=1.9.47"></script>
-  <script src="js/sheetsService.js?v=1.9.47"></script>
-  <script src="js/rainpointService.js?v=1.9.47"></script>
-  <script src="js/deviceService.js?v=1.9.47"></script>
-  <script src="js/app.js?v=1.9.47"></script>
+  <script src="js/config.js?v=1.9.48"></script>
+  <script src="js/moistureEngine.js?v=1.9.48"></script>
+  <script src="js/sheetsService.js?v=1.9.48"></script>
+  <script src="js/rainpointService.js?v=1.9.48"></script>
+  <script src="js/deviceService.js?v=1.9.48"></script>
+  <script src="js/app.js?v=1.9.48"></script>
 </body>
 </html>
