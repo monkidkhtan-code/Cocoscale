@@ -139,8 +139,9 @@ class MoistureEngine {
     const ageMinutes = Math.max(0, Math.round(ageMs / 60000));
     const isStale = ageMinutes > staleMinutes;
 
-    // 1. Auto-detect irrigation cycles (upward weight jumps >= irrigationJumpKg)
-    const minJump = Math.max(0.05, Number(cal.irrigationJumpKg) || 0.15);
+    // 1. Auto-detect irrigation / liquid-in cycles (any upward weight increase > 5 mL / 0.005 kg)
+    const minJump = 0.006; // > 5 mL
+    const rateJumpThreshold = Math.max(0.05, Number(cal.irrigationJumpKg) || 0.05);
     const irrigationEvents = [];
     let activeEvent = null;
 
@@ -248,7 +249,7 @@ class MoistureEngine {
       // Start after the latest irrigation jump inside the 3h window
       let startIdx = 0;
       for (let i = 1; i < recentWindow.length; i++) {
-        if (recentWindow[i].weightKg - recentWindow[i - 1].weightKg >= minJump) {
+        if (recentWindow[i].weightKg - recentWindow[i - 1].weightKg >= rateJumpThreshold) {
           startIdx = i;
         }
       }

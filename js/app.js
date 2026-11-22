@@ -42,7 +42,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.44").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.45").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -2029,7 +2029,7 @@ class CocoScaleApp {
       return;
     }
 
-    // Compute daily liquid IN (all positive deltas >= 15g) & Evap/Uptake OUT (all negative deltas <= -5g)
+    // Compute daily liquid IN (all positive deltas > 5 mL) & Evap/Uptake OUT (all negative deltas <= -5g)
     const allRows = analysis.enrichedRows || [];
     let totalInMl = 0;
     let totalOutMl = 0;
@@ -2039,7 +2039,7 @@ class CocoScaleApp {
       const t = curr.ts.getTime();
       if (t < selStartMs || t > selEndMs) continue;
       const deltaKg = curr.weightKg - prev.weightKg;
-      if (deltaKg >= 0.015) {
+      if (deltaKg > 0.005) {
         totalInMl += Math.round(deltaKg * 1000);
       } else if (deltaKg <= -0.005) {
         totalOutMl += Math.round(Math.abs(deltaKg) * 1000);
@@ -2058,7 +2058,7 @@ class CocoScaleApp {
     badgeEl.textContent = `${evs.length} shot${evs.length === 1 ? "" : "s"}`;
 
     if (evs.length === 0) {
-      eventsContainer.innerHTML = `<div class="empty-state">No upward irrigation jumps (≥${st.calibration.irrigationJumpKg} kg) on ${evDayLabelEl?.textContent || "this day"}.</div>`;
+      eventsContainer.innerHTML = `<div class="empty-state">No upward liquid increases (&gt;5 mL) on ${evDayLabelEl?.textContent || "this day"}.</div>`;
     } else {
       eventsContainer.innerHTML = evs.map((ev) => {
         const dtStr = ev.peakTs.toLocaleString([], {
