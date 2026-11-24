@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.70").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.71").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1861,9 +1861,11 @@ class CocoScaleApp {
         for (let t = projTargetMs + stepMs; t <= projTailEndMs; t += stepMs) pushProjStep(t, false);
 
         const targetDt = new Date(projTargetMs);
-        const targetTimeStr = isBefore6Pm
-          ? "18:00"
-          : `${String(targetDt.getHours()).padStart(2, "0")}:${String(targetDt.getMinutes()).padStart(2, "0")}`;
+        const rawHr = isBefore6Pm ? 18 : targetDt.getHours();
+        const rawMin = isBefore6Pm ? 0 : targetDt.getMinutes();
+        const targetAmPm = rawHr >= 12 ? "PM" : "AM";
+        const targetH12 = rawHr % 12 || 12;
+        const targetTimeStr = `${targetH12}:${String(rawMin).padStart(2, "0")} ${targetAmPm}`;
 
         projEndpointInfo = {
           xMs: projTargetMs,
@@ -2040,12 +2042,14 @@ class CocoScaleApp {
     const formatTickMs = (ms) => {
       const d = new Date(ms);
       if (Number.isNaN(d.getTime())) return "";
-      const hh = String(d.getHours()).padStart(2, "0");
+      const h24 = d.getHours();
+      const ampm = h24 >= 12 ? "PM" : "AM";
+      const h12 = h24 % 12 || 12;
       const mm = String(d.getMinutes()).padStart(2, "0");
       if (spanHours > 30 || this.chartHours > 36 || this.chartHours === 0) {
-        return `${d.getDate()}/${d.getMonth() + 1} ${hh}:${mm}`;
+        return `${d.getDate()}/${d.getMonth() + 1} ${h12}:${mm} ${ampm}`;
       }
-      return `${hh}:${mm}`;
+      return `${h12}:${mm} ${ampm}`;
     };
 
     const thresholdPlugin = {
@@ -2688,9 +2692,11 @@ class CocoScaleApp {
         else if (dKg <= -0.005) slotOut[slotIdx] += Math.round(Math.abs(dKg) * 1000);
       }
       for (let s = 0; s < 48; s++) {
-        const hh = String(Math.floor(s / 2)).padStart(2, "0");
+        const h24 = Math.floor(s / 2);
+        const ampm = h24 >= 12 ? "PM" : "AM";
+        const h12 = h24 % 12 || 12;
         const mm = s % 2 === 0 ? "00" : "30";
-        labels.push(`${hh}:${mm}`);
+        labels.push(`${h12}:${mm} ${ampm}`);
         inVals.push(slotIn[s]);
         outVals.push(slotOut[s]);
       }
@@ -2713,7 +2719,9 @@ class CocoScaleApp {
         else if (dKg <= -0.005) hourlyOut[hr] += Math.round(Math.abs(dKg) * 1000);
       }
       for (let h = 0; h < 24; h++) {
-        labels.push(`${String(h).padStart(2, "0")}:00`);
+        const ampm = h >= 12 ? "PM" : "AM";
+        const h12 = h % 12 || 12;
+        labels.push(`${h12}:00 ${ampm}`);
         inVals.push(hourlyIn[h]);
         outVals.push(hourlyOut[h]);
       }
