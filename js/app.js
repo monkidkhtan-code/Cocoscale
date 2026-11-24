@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.64").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.65").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -1479,8 +1479,12 @@ class CocoScaleApp {
     const target6PmMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0, 0).getTime();
     const rawRateMl = analysis?.dryingRateMlPerHr || 0;
     const rateKgPerHr = rawRateMl >= 20 ? rawRateMl / 1000 : 0.085;
-    const projLossKg = this.integrateDryBackKg(now.getTime(), target6PmMs, rateKgPerHr, st.id);
-    const proj6PmKg = Math.max(tareKg, m.rawWeightKg - projLossKg);
+    const projStats = this.integrateDryBackStats(now.getTime(), target6PmMs, rateKgPerHr, st.id);
+    const proj6PmKg = Math.max(tareKg, m.rawWeightKg - projStats.meanKg);
+    const minShotKg = 0.06; // 60 mL minimum shot buffer when checking 6 PM dry-back odds
+    const sigmaKg = Math.max(0.025, projStats.stdKg);
+    const zIfDrip = (target6PmKg - (proj6PmKg + minShotKg)) / sigmaKg;
+    const chanceIfDripPct = Math.max(1, Math.min(99, Math.round(100 / (1 + Math.exp(-1.7 * zIfDrip)))));
 
     let isDryBackReached = false;
     let weightChipLbl = "💧 Saturated";
@@ -1506,17 +1510,23 @@ class CocoScaleApp {
         weightChipLbl = "💧 At 100% FC";
         weightChipTitle = `Bag is at or above 100% Field Capacity (${m.fieldCapacityRawKg.toFixed(2)} kg).`;
         weightHoldReason = `At 100% Field Capacity (${m.rawWeightKg.toFixed(2)} kg)`;
-      } else if (proj6PmKg <= target6PmKg) {
-        isDryBackReached = true;
-        const roomMl = Math.round((target6PmKg - proj6PmKg) * 1000);
-        weightChipLbl = "🌱 Room to Drip";
-        weightChipTitle = `On track for ${targetDryBackPct}% dry-back by 6 PM (~${roomMl} mL room at ${Math.round(rateKgPerHr * 1000)} mL/hr).`;
-      } else {
+      } else if (proj6PmKg > target6PmKg) {
         isDryBackReached = false;
         const overMl = Math.round((proj6PmKg - target6PmKg) * 1000);
         weightChipLbl = "💧 Hold for 6PM";
         weightChipTitle = `Projected 6 PM weight (${proj6PmKg.toFixed(2)} kg) exceeds 6 PM target (${target6PmKg.toFixed(2)} kg) by +${overMl} mL.`;
         weightHoldReason = `Over-saturated for 6 PM target (+${overMl} mL above ${target6PmKg.toFixed(2)} kg)`;
+      } else if (chanceIfDripPct < 60) {
+        isDryBackReached = false;
+        const roomMl = Math.round((target6PmKg - proj6PmKg) * 1000);
+        weightChipLbl = "💧 Low 6PM Odds";
+        weightChipTitle = `Only ${roomMl} mL room before 6 PM target — dripping (+60 mL) drops chance of reaching ${targetDryBackPct}% dry-back to ${chanceIfDripPct}% (<60%).`;
+        weightHoldReason = `Low chance to reach 6 PM dry-back if dripped (${chanceIfDripPct}% odds, only ${roomMl} mL room)`;
+      } else {
+        isDryBackReached = true;
+        const roomMl = Math.round((target6PmKg - proj6PmKg) * 1000);
+        weightChipLbl = "🌱 Room to Drip";
+        weightChipTitle = `On track for ${targetDryBackPct}% dry-back by 6 PM (~${roomMl} mL room · ${chanceIfDripPct}% odds after 60 mL shot at ${Math.round(rateKgPerHr * 1000)} mL/hr).`;
       }
     } else {
       if (m.rawWeightKg <= target6PmKg) {
