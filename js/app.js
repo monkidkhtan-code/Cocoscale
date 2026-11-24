@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.65").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.66").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -2178,10 +2178,48 @@ class CocoScaleApp {
 
     const isWeightMode = this.chartMode === "weight";
 
+    // Register smart top-corner tooltip positioner (pins tooltip to opposite top corner so it never blocks chart lines)
+    if (Chart.Tooltip && Chart.Tooltip.positioners && !Chart.Tooltip.positioners.smartTopEdge) {
+      Chart.Tooltip.positioners.smartTopEdge = function (elements, eventPosition) {
+        const area = this.chart?.chartArea;
+        if (!area || !elements.length) return false;
+        const midX = (area.left + area.right) / 2;
+        const placeRight = (eventPosition?.x ?? midX) < midX;
+        return {
+          x: placeRight ? area.right - 8 : area.left + 8,
+          y: area.top + 6,
+          xAlign: placeRight ? "right" : "left",
+          yAlign: "top"
+        };
+      };
+    }
+
+    // Subtle vertical crosshair line for active hover/touch point
+    const crosshairPlugin = {
+      id: "activeCrosshair",
+      afterDatasetsDraw(chart) {
+        const active = chart.tooltip?.getActiveElements?.() || [];
+        const area = chart.chartArea;
+        if (!active.length || !area) return;
+        const xPix = active[0].element?.x;
+        if (!Number.isFinite(xPix) || xPix < area.left || xPix > area.right) return;
+        const { ctx: c } = chart;
+        c.save();
+        c.beginPath();
+        c.setLineDash([3, 3]);
+        c.strokeStyle = "rgba(148, 163, 184, 0.45)";
+        c.lineWidth = 1;
+        c.moveTo(xPix, area.top);
+        c.lineTo(xPix, area.bottom);
+        c.stroke();
+        c.restore();
+      }
+    };
+
     this.chartInstance = new Chart(ctx, {
       type: "line",
       data: { datasets },
-      plugins: [dayNightPlugin, thresholdPlugin],
+      plugins: [dayNightPlugin, thresholdPlugin, crosshairPlugin],
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -2193,11 +2231,17 @@ class CocoScaleApp {
             labels: { color: "#cbd5e1", font: { family: "'Plus Jakarta Sans'" } }
           },
           tooltip: {
-            backgroundColor: "rgba(9, 15, 22, 0.95)",
-            borderColor: "rgba(148, 163, 184, 0.25)",
+            position: "smartTopEdge",
+            filter: (item) => !String(item.dataset?.label || "").includes("68% Prob."),
+            backgroundColor: "rgba(6, 20, 15, 0.82)",
+            borderColor: "rgba(45, 212, 191, 0.35)",
             borderWidth: 1,
+            padding: 7,
+            titleFont: { family: "'JetBrains Mono', monospace", size: 10.5, weight: "700" },
+            bodyFont: { family: "'Plus Jakarta Sans', sans-serif", size: 10.5 },
+            footerFont: { family: "'Plus Jakarta Sans', sans-serif", size: 10 },
             titleColor: "#f8fafc",
-            bodyColor: "#cbd5e1",
+            bodyColor: "#e2e8f0",
             footerColor: "#94a3b8",
             callbacks: {
               title(items) {
@@ -2207,8 +2251,7 @@ class CocoScaleApp {
                   month: "short",
                   day: "numeric",
                   hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit"
+                  minute: "2-digit"
                 });
               },
               label(item) {
@@ -2313,6 +2356,31 @@ class CocoScaleApp {
         }
       }
     });
+
+    // Auto-dismiss tooltip immediately when finger lifts, slides outside chart, or pointer leaves
+    const canvas = ctx.canvas;
+    if (canvas && !canvas._cocoTouchDismissBound) {
+      canvas._cocoTouchDismissBound = true;
+      canvas.style.touchAction = "pan-y";
+      const clearChartTooltip = () => {
+        const ch = Chart.getChart(canvas);
+        if (!ch) return;
+        ch.setActiveElements([]);
+        if (ch.tooltip) ch.tooltip.setActiveElements([], { x: 0, y: 0 });
+        ch.update("none");
+      };
+      ["touchend", "touchcancel", "pointerup", "pointercancel", "pointerleave", "mouseleave"].forEach((evt) => {
+        canvas.addEventListener(evt, clearChartTooltip, { passive: true });
+      });
+      canvas.addEventListener("touchmove", (e) => {
+        const t = e.touches && e.touches[0];
+        if (!t) return;
+        const r = canvas.getBoundingClientRect();
+        if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) {
+          clearChartTooltip();
+        }
+      }, { passive: true });
+    }
   }
 
   syncChartToolbarUI() {
@@ -2725,6 +2793,31 @@ class CocoScaleApp {
         }
       }
     });
+
+    // Auto-dismiss tooltip immediately when finger lifts, slides outside chart, or pointer leaves
+    const canvas = ctx.canvas;
+    if (canvas && !canvas._cocoTouchDismissBound) {
+      canvas._cocoTouchDismissBound = true;
+      canvas.style.touchAction = "pan-y";
+      const clearChartTooltip = () => {
+        const ch = Chart.getChart(canvas);
+        if (!ch) return;
+        ch.setActiveElements([]);
+        if (ch.tooltip) ch.tooltip.setActiveElements([], { x: 0, y: 0 });
+        ch.update("none");
+      };
+      ["touchend", "touchcancel", "pointerup", "pointercancel", "pointerleave", "mouseleave"].forEach((evt) => {
+        canvas.addEventListener(evt, clearChartTooltip, { passive: true });
+      });
+      canvas.addEventListener("touchmove", (e) => {
+        const t = e.touches && e.touches[0];
+        if (!t) return;
+        const r = canvas.getBoundingClientRect();
+        if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) {
+          clearChartTooltip();
+        }
+      }, { passive: true });
+    }
   }
 
   setCurrentAsFieldCapacity() {
@@ -3552,6 +3645,31 @@ class CocoScaleApp {
         }
       }
     });
+
+    // Auto-dismiss tooltip immediately when finger lifts, slides outside chart, or pointer leaves
+    const canvas = ctx.canvas;
+    if (canvas && !canvas._cocoTouchDismissBound) {
+      canvas._cocoTouchDismissBound = true;
+      canvas.style.touchAction = "pan-y";
+      const clearChartTooltip = () => {
+        const ch = Chart.getChart(canvas);
+        if (!ch) return;
+        ch.setActiveElements([]);
+        if (ch.tooltip) ch.tooltip.setActiveElements([], { x: 0, y: 0 });
+        ch.update("none");
+      };
+      ["touchend", "touchcancel", "pointerup", "pointercancel", "pointerleave", "mouseleave"].forEach((evt) => {
+        canvas.addEventListener(evt, clearChartTooltip, { passive: true });
+      });
+      canvas.addEventListener("touchmove", (e) => {
+        const t = e.touches && e.touches[0];
+        if (!t) return;
+        const r = canvas.getBoundingClientRect();
+        if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) {
+          clearChartTooltip();
+        }
+      }, { passive: true });
+    }
   }
 
   openHardwareModal() {
