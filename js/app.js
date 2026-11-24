@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.68").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.69").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -2733,8 +2733,47 @@ class CocoScaleApp {
       }
     }
 
+    if (Chart.Tooltip && Chart.Tooltip.positioners && !Chart.Tooltip.positioners.smartTopEdge) {
+      Chart.Tooltip.positioners.smartTopEdge = function (elements, eventPosition) {
+        const area = this.chart?.chartArea;
+        if (!area || !elements.length) return false;
+        const px = Number.isFinite(eventPosition?.x) ? eventPosition.x : elements[0].element.x;
+        const py = Number.isFinite(eventPosition?.y) ? eventPosition.y : elements[0].element.y;
+        const x = Math.max(area.left + 8, Math.min(area.right - 8, px));
+        const nearTop = (py - area.top) < 95;
+        return {
+          x,
+          y: nearTop ? area.top + 4 : py - 24,
+          xAlign: px < area.left + 70 ? "left" : (px > area.right - 70 ? "right" : "center"),
+          yAlign: nearTop ? "top" : "bottom"
+        };
+      };
+    }
+
+    const barCrosshairPlugin = {
+      id: "barActiveCrosshair",
+      afterDatasetsDraw(chart) {
+        const active = chart.tooltip?.getActiveElements?.() || [];
+        const area = chart.chartArea;
+        if (!active.length || !area) return;
+        const xPix = active[0].element?.x;
+        if (!Number.isFinite(xPix) || xPix < area.left || xPix > area.right) return;
+        const { ctx: c } = chart;
+        c.save();
+        c.beginPath();
+        c.setLineDash([3, 3]);
+        c.strokeStyle = "rgba(148, 163, 184, 0.45)";
+        c.lineWidth = 1;
+        c.moveTo(xPix, area.top);
+        c.lineTo(xPix, area.bottom);
+        c.stroke();
+        c.restore();
+      }
+    };
+
     this.waterBalanceChart = new Chart(ctx, {
       type: "bar",
+      plugins: [barCrosshairPlugin],
       data: {
         labels,
         datasets: [
@@ -2759,15 +2798,22 @@ class CocoScaleApp {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: { mode: "index", intersect: false },
+        interaction: { mode: "index", axis: "x", intersect: false },
         plugins: {
           legend: {
             labels: { color: "#cbd5e1", font: { family: "'Plus Jakarta Sans'", size: 11 } }
           },
           tooltip: {
-            backgroundColor: "rgba(9, 15, 22, 0.95)",
-            borderColor: "rgba(148, 163, 184, 0.25)",
+            position: "smartTopEdge",
+            backgroundColor: "rgba(6, 20, 15, 0.94)",
+            borderColor: "rgba(45, 212, 191, 0.35)",
             borderWidth: 1,
+            padding: 7,
+            titleFont: { family: "'JetBrains Mono', monospace", size: 10.5, weight: "700" },
+            bodyFont: { family: "'Plus Jakarta Sans', sans-serif", size: 10.5 },
+            footerFont: { family: "'Plus Jakarta Sans', sans-serif", size: 10 },
+            titleColor: "#f8fafc",
+            bodyColor: "#e2e8f0",
             callbacks: {
               afterBody(items) {
                 if (items.length < 2) return [];
