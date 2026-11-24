@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.66").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.67").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -2357,30 +2357,31 @@ class CocoScaleApp {
       }
     });
 
-    // Auto-dismiss tooltip immediately when finger lifts, slides outside chart, or pointer leaves
-    const canvas = ctx.canvas;
-    if (canvas && !canvas._cocoTouchDismissBound) {
-      canvas._cocoTouchDismissBound = true;
-      canvas.style.touchAction = "pan-y";
-      const clearChartTooltip = () => {
-        const ch = Chart.getChart(canvas);
-        if (!ch) return;
-        ch.setActiveElements([]);
-        if (ch.tooltip) ch.tooltip.setActiveElements([], { x: 0, y: 0 });
-        ch.update("none");
-      };
-      ["touchend", "touchcancel", "pointerup", "pointercancel", "pointerleave", "mouseleave"].forEach((evt) => {
-        canvas.addEventListener(evt, clearChartTooltip, { passive: true });
-      });
-      canvas.addEventListener("touchmove", (e) => {
-        const t = e.touches && e.touches[0];
-        if (!t) return;
-        const r = canvas.getBoundingClientRect();
-        if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) {
-          clearChartTooltip();
-        }
-      }, { passive: true });
-    }
+    this.bindChartTouchDismiss(ctx?.canvas);
+  }
+
+  bindChartTouchDismiss(chartCanvas) {
+    if (!chartCanvas || chartCanvas._cocoTouchDismissBound) return;
+    chartCanvas._cocoTouchDismissBound = true;
+    chartCanvas.style.touchAction = "pan-y";
+    const clearChartTooltip = () => {
+      const ch = Chart.getChart(chartCanvas);
+      if (!ch) return;
+      ch.setActiveElements([]);
+      if (ch.tooltip) ch.tooltip.setActiveElements([], { x: 0, y: 0 });
+      ch.update("none");
+    };
+    ["touchend", "touchcancel", "pointerup", "pointercancel", "pointerleave", "mouseleave"].forEach((evt) => {
+      chartCanvas.addEventListener(evt, clearChartTooltip, { passive: true });
+    });
+    chartCanvas.addEventListener("touchmove", (e) => {
+      const t = e.touches && e.touches[0];
+      if (!t) return;
+      const r = chartCanvas.getBoundingClientRect();
+      if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) {
+        clearChartTooltip();
+      }
+    }, { passive: true });
   }
 
   syncChartToolbarUI() {
@@ -2794,30 +2795,7 @@ class CocoScaleApp {
       }
     });
 
-    // Auto-dismiss tooltip immediately when finger lifts, slides outside chart, or pointer leaves
-    const canvas = ctx.canvas;
-    if (canvas && !canvas._cocoTouchDismissBound) {
-      canvas._cocoTouchDismissBound = true;
-      canvas.style.touchAction = "pan-y";
-      const clearChartTooltip = () => {
-        const ch = Chart.getChart(canvas);
-        if (!ch) return;
-        ch.setActiveElements([]);
-        if (ch.tooltip) ch.tooltip.setActiveElements([], { x: 0, y: 0 });
-        ch.update("none");
-      };
-      ["touchend", "touchcancel", "pointerup", "pointercancel", "pointerleave", "mouseleave"].forEach((evt) => {
-        canvas.addEventListener(evt, clearChartTooltip, { passive: true });
-      });
-      canvas.addEventListener("touchmove", (e) => {
-        const t = e.touches && e.touches[0];
-        if (!t) return;
-        const r = canvas.getBoundingClientRect();
-        if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) {
-          clearChartTooltip();
-        }
-      }, { passive: true });
-    }
+    this.bindChartTouchDismiss(ctx?.canvas);
   }
 
   setCurrentAsFieldCapacity() {
@@ -3646,30 +3624,7 @@ class CocoScaleApp {
       }
     });
 
-    // Auto-dismiss tooltip immediately when finger lifts, slides outside chart, or pointer leaves
-    const canvas = ctx.canvas;
-    if (canvas && !canvas._cocoTouchDismissBound) {
-      canvas._cocoTouchDismissBound = true;
-      canvas.style.touchAction = "pan-y";
-      const clearChartTooltip = () => {
-        const ch = Chart.getChart(canvas);
-        if (!ch) return;
-        ch.setActiveElements([]);
-        if (ch.tooltip) ch.tooltip.setActiveElements([], { x: 0, y: 0 });
-        ch.update("none");
-      };
-      ["touchend", "touchcancel", "pointerup", "pointercancel", "pointerleave", "mouseleave"].forEach((evt) => {
-        canvas.addEventListener(evt, clearChartTooltip, { passive: true });
-      });
-      canvas.addEventListener("touchmove", (e) => {
-        const t = e.touches && e.touches[0];
-        if (!t) return;
-        const r = canvas.getBoundingClientRect();
-        if (t.clientX < r.left || t.clientX > r.right || t.clientY < r.top || t.clientY > r.bottom) {
-          clearChartTooltip();
-        }
-      }, { passive: true });
-    }
+    this.bindChartTouchDismiss(ctx?.canvas);
   }
 
   openHardwareModal() {
