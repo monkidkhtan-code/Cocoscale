@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.67").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.68").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -2050,7 +2050,7 @@ class CocoScaleApp {
 
     const thresholdPlugin = {
       id: "thresholdLines",
-      afterDraw(chart) {
+      afterDatasetsDraw(chart) {
         const { ctx: c, chartArea, scales } = chart;
         if (!chartArea || !scales.y) return;
 
@@ -2178,18 +2178,20 @@ class CocoScaleApp {
 
     const isWeightMode = this.chartMode === "weight";
 
-    // Register smart top-corner tooltip positioner (pins tooltip to opposite top corner so it never blocks chart lines)
+    // Position tooltip right above where the cursor or finger is pointing
     if (Chart.Tooltip && Chart.Tooltip.positioners && !Chart.Tooltip.positioners.smartTopEdge) {
       Chart.Tooltip.positioners.smartTopEdge = function (elements, eventPosition) {
         const area = this.chart?.chartArea;
         if (!area || !elements.length) return false;
-        const midX = (area.left + area.right) / 2;
-        const placeRight = (eventPosition?.x ?? midX) < midX;
+        const px = Number.isFinite(eventPosition?.x) ? eventPosition.x : elements[0].element.x;
+        const py = Number.isFinite(eventPosition?.y) ? eventPosition.y : elements[0].element.y;
+        const x = Math.max(area.left + 8, Math.min(area.right - 8, px));
+        const nearTop = (py - area.top) < 95;
         return {
-          x: placeRight ? area.right - 8 : area.left + 8,
-          y: area.top + 6,
-          xAlign: placeRight ? "right" : "left",
-          yAlign: "top"
+          x,
+          y: nearTop ? area.top + 4 : py - 24,
+          xAlign: px < area.left + 70 ? "left" : (px > area.right - 70 ? "right" : "center"),
+          yAlign: nearTop ? "top" : "bottom"
         };
       };
     }
@@ -2233,7 +2235,7 @@ class CocoScaleApp {
           tooltip: {
             position: "smartTopEdge",
             filter: (item) => !String(item.dataset?.label || "").includes("68% Prob."),
-            backgroundColor: "rgba(6, 20, 15, 0.82)",
+            backgroundColor: "rgba(6, 20, 15, 0.94)",
             borderColor: "rgba(45, 212, 191, 0.35)",
             borderWidth: 1,
             padding: 7,
