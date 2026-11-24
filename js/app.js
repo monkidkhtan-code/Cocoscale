@@ -47,7 +47,7 @@ class CocoScaleApp {
   async init() {
     if (window.lucide) window.lucide.createIcons();
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=1.9.69").then((reg) => {
+      navigator.serviceWorker.register("./sw.js?v=1.9.70").then((reg) => {
         reg.update();
         reg.addEventListener("updatefound", () => {
           const installingWorker = reg.installing;
@@ -2317,9 +2317,27 @@ class CocoScaleApp {
           x: {
             type: "linear",
             bounds: "data",
+            afterBuildTicks: (axis) => {
+              const spanHr = (axis.max - axis.min) / 3600000;
+              if (!(spanHr > 0)) return;
+              const stepMs = spanHr <= 9 ? 30 * 60 * 1000
+                : spanHr <= 30 ? 60 * 60 * 1000
+                : spanHr <= 90 ? 6 * 3600 * 1000
+                : 24 * 3600 * 1000;
+              const tzMs = new Date().getTimezoneOffset() * 60000;
+              const first = Math.ceil((axis.min - tzMs) / stepMs) * stepMs + tzMs;
+              const ticks = [];
+              for (let t = first; t <= axis.max; t += stepMs) {
+                ticks.push({ value: t });
+              }
+              if (ticks.length >= 2) axis.ticks = ticks;
+            },
             ticks: {
-              color: "#64748b",
-              maxTicksLimit: 9,
+              color: "#9bb8a5",
+              autoSkip: true,
+              autoSkipPadding: 8,
+              minRotation: 45,
+              maxRotation: 45,
               font: { family: "'JetBrains Mono'", size: 10 },
               callback: (val) => formatTickMs(val)
             },
